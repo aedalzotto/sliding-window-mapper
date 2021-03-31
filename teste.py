@@ -36,14 +36,36 @@ def window_cost(x_start, y_start, w_size):
 	return free_page_cnt
 
 free_pages_window = 0
-selected_window = (-1, -1)
-w = 3
+selected_window = (0, 0)
+w = int(np.sqrt(APP_TASKS/PKG_MAX_LOCAL_TASKS))
+if (w < 3):
+	w = 3
 
-
-
-
-
-free_pages = window_cost(2, 2, 3)
-print("Free pages = {:d}".format(free_pages))
-
-
+#free_pages = window_cost(2, 2, 3)
+#print("Free pages = {:d}".format(free_pages))
+while (True):
+	#Alterar a busca para começar a partir da última janela selecionada
+	while (True):
+		free_pages = window_cost(selected_window[0], selected_window[1], w)
+		print(free_pages)
+		if (free_pages > free_pages_window):
+			free_pages_window = free_pages
+			if (free_pages_window >= (w**2 * PKG_MAX_LOCAL_TASKS)): #totalmente livre
+				break
+		if ((selected_window[1] + STRIDE) < Y_SIZE and (selected_window[1] + w != Y_SIZE)): 
+			selected_window =  (selected_window[0],selected_window[1] + STRIDE)
+			if ((selected_window[1] + w) > Y_SIZE):
+				selected_window = (selected_window[0],Y_SIZE - w)
+		elif ((selected_window[0] + w) != X_SIZE):
+			selected_window = (selected_window[0] + STRIDE,0)
+			if ((selected_window[0] + w) > X_SIZE):
+				selected_window = (X_SIZE - w,selected_window[1])
+		else:
+			break
+		print(selected_window)
+	if (free_pages_window >= APP_TASKS):
+		break
+	else:
+		w = w + 1
+		selected_window = (0,0)
+print(free_pages_window)
