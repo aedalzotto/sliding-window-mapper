@@ -12,8 +12,8 @@ Y_SIZE = 8
 
 PKG_MAX_LOCAL_TASKS = 4
 
-LAST_WINDOW = (1, 1)
 STRIDE = 2
+LAST_WINDOW = (STRIDE,STRIDE)
 
 free_page_matrix = np.random.randint(PKG_MAX_LOCAL_TASKS + 1, size=(X_SIZE, Y_SIZE))
 print(free_page_matrix)
@@ -36,13 +36,14 @@ def window_cost(x_start, y_start, w_size):
 	return free_page_cnt
 
 free_pages_window = 0
-selected_window = (0, 0)
+selected_window = LAST_WINDOW
 w = int(np.sqrt(APP_TASKS/PKG_MAX_LOCAL_TASKS))
 if (w < 3):
 	w = 3
 
 #free_pages = window_cost(2, 2, 3)
 #print("Free pages = {:d}".format(free_pages))
+
 while (True):
 	#Alterar a busca para começar a partir da última janela selecionada
 	while (True):
@@ -61,9 +62,12 @@ while (True):
 			if ((selected_window[0] + w) > X_SIZE):
 				selected_window = (X_SIZE - w,selected_window[1])
 		else:
+			selected_window = (0,0)
+		if (selected_window == LAST_WINDOW):
 			break
 		print(selected_window)
 	if (free_pages_window >= APP_TASKS):
+		LAST_WINDOW = selected_window
 		break
 	else:
 		w = w + 1
