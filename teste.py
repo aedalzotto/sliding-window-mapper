@@ -4,186 +4,274 @@
 #
 
 import numpy as np
+import argparse
 
-X_SIZE = 8
-Y_SIZE = 8
-
-PKG_MAX_LOCAL_TASKS = 4
-
-STRIDE = 2
-LAST_WINDOW = (STRIDE,STRIDE)
-
-#dependence_list = [5,-2,-3,-4,-5,0] #MPEG
-#dependence_list = [3,2,-3,-3,-1]
-#dependence_list = [3,-3,-3,-1]
-#dependence_list = [3,0,-1,-2]
-#dependence_list = [3,2,-3,-3,0]
-dependence_list = [5,-2,-3,0,2,-5,-3]
-
-APP_TASKS = dependence_list[0]
-
-mapped = [-1,-1,-1,-1,-1]
-
-def build_app(dp_list):
-	tam = len(dp_list) - 1
-	d = []
+def build_app(app_descr):
+	descr_len = len(app_descr) - 1
+	sucessors = []
 	aux = []
-	for x in range(tam):
-		if (dp_list[x + 1] > 0):
-			aux.append(dp_list[x+1]-1)
+	for x in range(descr_len):
+		if (app_descr[x + 1] > 0):
+			aux.append(app_descr[x + 1] - 1)
 		else:
-			aux.append(abs(dp_list[x+1])-1)
-			d.append(aux)
+			aux.append(abs(app_descr[x + 1]) - 1)
+			sucessors.append(aux)
 			aux = []
-	return d
+	return sucessors
 
-def antecessor_task(dp_list, t):
-	#Retornar uma lista de tarefas antecessoras á tarefa "t"
-	tam = len(dp_list)
-	out = []
-	for x in range(tam):
-		if (t in dp_list[x]):
-			out.append(x)
-	return out
-
-def initial(dp_list):
-	out = []
-	for task in range(len(dp_list)):
-		x = antecessor_task(dp_list, task)
-		if (x == []):
-			out.append(task)
-	return out
-
-
-#print(dependence_list)
-lista = build_app(dependence_list)
-#print(lista)
-#print(antecessor_task(lista,2))
-#print(initial(lista))
-
-free_page_matrix = np.random.randint(PKG_MAX_LOCAL_TASKS + 1, size=(X_SIZE, Y_SIZE))
-pending = np.zeros((X_SIZE, Y_SIZE))
-print(free_page_matrix)
-
-def window_cost(x_start, y_start, w_size):
+def window_cost(manycore, x_start, y_start, w_size, x_size, y_size, max_local_tasks):
 	free_page_cnt = 0
 	free_page_pe = 0
 
 	x_limit = x_start + w_size
-	if x_limit > X_SIZE:
-		x_limit = X_SIZE
+	if x_limit > x_size:
+		x_limit = x_size
 
 	y_limit = y_start + w_size
-	if y_limit > Y_SIZE:
-		y_limit = Y_SIZE
+	if y_limit > y_size:
+		y_limit = y_size
 
-	min_free_pages = PKG_MAX_LOCAL_TASKS
+	min_free_pages = max_local_tasks
 
 	for x in range(x_start, x_limit):
 		for y in range(y_start, y_limit):
-			free_page_cnt = free_page_cnt + free_page_matrix[x][y]
-			if (free_page_matrix[x][y] != 0):
+			free_page_cnt = free_page_cnt + manycore[x][y]
+			if (manycore[x][y] != 0):
 				free_page_pe = free_page_pe + 1
-				if (free_page_matrix[x][y] < min_free_pages):
-					min_free_pages = free_page_matrix[x][y]
+				if (manycore[x][y] < min_free_pages):
+					min_free_pages = manycore[x][y]
 	
 	return free_page_cnt, free_page_pe, min_free_pages
 
-free_pages_window = 0
-selected_window = LAST_WINDOW
-pick_window = LAST_WINDOW
-w = int(np.sqrt(APP_TASKS/PKG_MAX_LOCAL_TASKS))
-if (w < 3):
-	w = 3
+def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size, last_selected_window):
+	if w**2 * max_local_tasks < task_cnt:
+		w = int(np.sqrt(task_cnt/max_local_tasks))
+	
+	selected_window = last_selected_window
+	picked_window = selected_window
+	tasks_per_pe = 0
+	free_pages_window = 0
 
-#free_pages = window_cost(2, 2, 3)
-#print("Free pages = {:d}".format(free_pages))
-task_per_pe = 0
+	while True:
+		while True:
+			free_pages, free_pe, min_free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size, max_local_tasks)
+			#print(free_pages)
+			#print(selected_window)
+			#print(free_pages)
 
-while (True):
-	#Alterar a busca para começar a partir da última janela selecionada
-	while (True):
-		free_pages,free_pe,min_free_pages = window_cost(selected_window[0], selected_window[1], w)
-		#print(free_pages)
-		#print(selected_window)
-		#print(free_pages)
-		if (free_pages > free_pages_window):
-			free_pages_window = free_pages
-			pick_window = selected_window
-			if (free_pe >= APP_TASKS): #mono task
-				task_per_pe = 1
-			elif (min_free_pages * free_pe >= APP_TASKS):
-				task_per_pe = min_free_pages
+			if free_pages > free_pages_window:
+				free_pages_window = free_pages
+				picked_window = selected_window
+
+				tasks_per_pe = int(task_cnt/free_pe) + (1 if task_cnt % free_pe else 0)
+				if tasks_per_pe > min_free_pages:		# Guarantee worst case
+					tasks_per_pe = PKG_MAX_LOCAL_TASKS
+
+				if free_pages_window >= w**2 * max_local_tasks: #totalmente livre
+					break
+
+			if selected_window[1] + stride < y_size and selected_window[1] + w != y_size:
+				selected_window = (selected_window[0], selected_window[1] + stride)
+
+				if selected_window[1] + w > y_size:
+					selected_window = (selected_window[0], y_size - w)
+
+			elif selected_window[0] + w != x_size:
+				selected_window = (selected_window[0] + stride, 0)
+
+				if selected_window[0] + w > x_size:
+					selected_window = (x_size - w,selected_window[1])
+
 			else:
-				task_per_pe = PKG_MAX_LOCAL_TASKS
-			if (free_pages_window >= (w**2 * PKG_MAX_LOCAL_TASKS)): #totalmente livre
+				selected_window = (0, 0)
+
+			if selected_window == last_selected_window:
 				break
-		if ((selected_window[1] + STRIDE) < Y_SIZE and (selected_window[1] + w != Y_SIZE)): 
-			selected_window =  (selected_window[0],selected_window[1] + STRIDE)
-			if ((selected_window[1] + w) > Y_SIZE):
-				selected_window = (selected_window[0],Y_SIZE - w)
-		elif ((selected_window[0] + w) != X_SIZE):
-			selected_window = (selected_window[0] + STRIDE,0)
-			if ((selected_window[0] + w) > X_SIZE):
-				selected_window = (X_SIZE - w,selected_window[1])
-		else:
-			selected_window = (0,0)
-		if (selected_window == LAST_WINDOW):
+			 
+		if free_pages_window >= task_cnt:
 			break
-	if (free_pages_window >= APP_TASKS):
-		LAST_WINDOW = pick_window
-		break
-	else:
-		w = w + 1
-		selected_window = (0,0) 
-# print(free_pages_window)
-# print(free_pe)
-# print(LAST_WINDOW)
+		else:
+			w = w + 1
+			selected_window = last_selected_window
 
-def map(t, selected_window, w):
-	# ignorar parte 1
-	# cost = -1
-	# sucessores = 1
-	# verificar antecessores
-	# Parte 3:
-	# Definir limites da janela e iterar (igual a função window_cost)
-	# Para cada PE verificado iterar em sucessores e antecessores.
-	# If uma das tarefas iteradas estiver mapeadas (seja antecessor ou sucessor) soma a distância mahantan a variavel c
-	# If c for menor que cost
-	# atualiza cost e xy candidato
-	# Ao final quando encontrar xy ótimo decrementar uma página livre
+	return picked_window, tasks_per_pe, w
+
+def antecessors(sucessors, t):
+	antecessors = []
+	for x in range(len(sucessors)):
+		if t in sucessors[x]:
+			antecessors.append(x)
+	return antecessors
+
+def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe):
 	cost = np.inf
-	sucessor_task = build_app(dependence_list)
-	list_comunicating = antecessor_task(sucessor_task, t) + sucessor_task[t]
-	selected_PE = (0,0)
-	list_comunicating = list(filter(lambda a: a != -1,list_comunicating))
-	print(list_comunicating)
-	if (mapped[t] != -1):
-		return "Error! Task já mapeada"
+	communicating = antecessors(sucessors, t) + sucessors[t]
+	communicating = list(filter(lambda a: a != -1, communicating))
 
-	for x in range(selected_window[0], selected_window[0] + w):
-		for y in range(selected_window[1], selected_window[1] + w):
-			if (free_page_matrix[x][y] != 0 and pending[x][y] < task_per_pe): #PE apto a receber a task t
+	selected_PE = (0, 0)
+
+	if mapped[t] != (-1, -1):
+		return "Task already mapped"
+
+	for x in range(selected_window[0], selected_window[0] + selected_w):
+		for y in range(selected_window[1], selected_window[1] + selected_w):
+			if manycore[x][y] != 0 and pending[x][y] < tasks_per_pe: #PE apto a receber a task t
 				c = 0
-				for aux in list_comunicating:
+				for aux in communicating:
 					#print(aux)
-					if (mapped[aux] != -1): #task sucessora ou antecessora mapeada
+					if mapped[aux] != -1: #task sucessora ou antecessora mapeada
 						#print(mapped[aux])
 						c = c + abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y) #cost igual a distancia Mahantan
-						print("C  ",c)
+						# print("C  ",c)
 				if (c < cost):
 					cost = c
-					selected_PE = (x,y)
-					mapped[t] = (x,y) #task t mapeada
-	free_page_matrix[selected_PE[0]][selected_PE[1]] = free_page_matrix[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
-	pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
+					selected_PE = (x, y)
+
 	return selected_PE
 
-print(pick_window)
-print("Task 0", map(0,pick_window,w))
-print("Task 1", map(1,pick_window,w))
-print("Task 2", map(2,pick_window,w))
-print("Task 3", map(3,pick_window,w))
+################################################################################
 
+parser = argparse.ArgumentParser(description='Sliding window mapper for many-cores')
+parser.add_argument('size', type=int, help="many-core dimension in either X or Y")
+parser.add_argument('page_number', type=int, help="many-core page number for each PE")
 
+parser.add_argument('--w', type=int, help="sliding window starting size", default=3)
+parser.add_argument('--stride', type=int, help="sliding window stride", default=2)
 
+args = parser.parse_args()
+
+PKG_MAX_LOCAL_TASKS = args.page_number
+PKG_MIN_W = args.w
+PKG_STRIDE = args.stride
+
+PKG_X_SIZE = args.size
+PKG_Y_SIZE = args.size
+
+print("Sliding window mapper for many-cores")
+print("\tMany-core size: {}x{}".format(PKG_X_SIZE, PKG_Y_SIZE))
+print("\tMaximum tasks per PE: {}".format(PKG_MAX_LOCAL_TASKS))
+print("\tSliding window mininum size: {}".format(PKG_MIN_W))
+print("\tSliding window stride: {}".format(PKG_STRIDE))
+
+################################################################################
+
+applications = {
+	"aes": [9, 2, 3, 4, 5, 6, 7, 8, -9, -1, -1, -1, -1, -1, -1, -1, -1],
+	"dijkstra": [7, -7, -7, -7, -7, -7, 1, 2, 3, 4, -5, 0],
+	"dtw": [6, 2, 3, 4, -5, -6, -6, -6, -6, 2, 3, 4, -5],
+	"fixe_base_test_16": [14, 0, 0, 0, 0, -1, -1, 4, 11, 12, -13, 4, 11, 12, -14, -2, -2, 0, 0, 3, 5, -9, 3, 6, -10],
+	"mpeg": [5, -4, -1, -2, 0, -3],
+	"MPEG4": [12, -8, -8, -8, -10, -9, -8, -10, 1, 2, 3, 5, 6, 11, -12, -6, 3, 4, 7, -11, -8, 0],
+	"MWD": [12, 0, -12, -6, 2, -10, -9, -9, -10, -3, -11, 7, -8, -1, -5],
+	"prod_cons": [2, 0, -1],
+	"synthetic1": [6, -3, -3, 4, -5, -6, -6, 0],
+	"VOPD": [12, 4, -8, -3, -9, -3, -1, -11, -5, -4, -12, -7, 6, -12, -6]
+}
+
+free_pages_system = PKG_MAX_LOCAL_TASKS * PKG_X_SIZE * PKG_Y_SIZE
+running = {}
+appid = 0
+manycore = np.full((PKG_X_SIZE, PKG_Y_SIZE), PKG_MAX_LOCAL_TASKS)
+last_selected_window = (0, 0)
+
+opt = -1
+while opt == -1:
+	print("\nSelect an option:")
+	print("\tA - Add application")
+	print("\tR - Remove application")
+	print("\tE - Exit")
+	opt = input("Type your option: ")
+	if opt == 'A':
+		print("\nAvailable applications:")
+		for app in applications:
+			print("\t{}".format(app))
+		
+		print("\tB - Back to main menu")
+		app_opt = -1
+		while app_opt == -1:
+			app_opt = input("Type your option: ")
+			if app_opt == 'B':
+				break
+			else:
+				try:
+					app_descr = applications[app_opt]
+
+					task_cnt = app_descr[0]
+					if task_cnt > free_pages_system:
+						print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages))
+						opt = -1
+						break
+
+					free_pages_system = free_pages_system - task_cnt
+					print("free pages = "+str(free_pages_system))
+					
+					sucessors = build_app(app_descr)
+					selected_window, tasks_per_pe, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
+					print(selected_window)
+					print(selected_w)
+					last_selected_window = selected_window
+
+					pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
+					mapped = []
+					for x in range(task_cnt):
+						mapped.append((-1, -1))
+
+					for t in range(len(sucessors)):
+						selected_PE = map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe)
+						# print("Task "+str(t), selected_PE)
+						mapped[t] = selected_PE
+						manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
+						pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
+						# print(pending)
+
+					running[appid] = (mapped, app_opt)
+					# running.append((appid, ))
+					print(running[appid])
+					appid = appid + 1
+						
+				except:
+					app_opt = -1
+					print("Invalid option, try again!")
+		
+		opt = -1
+	elif opt == 'R':
+		print("Removing application")
+
+		for id in running.keys():
+			print("\t{} - {}".format(id, running[id][1]))
+
+		print("\tB - Back to main menu")
+		app_opt = -1
+		while app_opt == -1:
+			app_opt = input("Type your option: ")
+			if app_opt == 'B':
+				break
+			else:
+				try:
+					app = running[int(app_opt)]
+					for pe in app[0]:
+						manycore[pe[0]][pe[1]] = manycore[pe[0]][pe[1]] + 1
+						free_pages_system = free_pages_system + 1
+
+					del running[int(app_opt)]
+
+				except:
+					app_opt = -1
+					print("Invalid option, try again!")
+
+		opt = -1
+	elif opt == 'E':
+		break
+	else:
+		opt = -1
+		print("Invalid option, try again!")
+
+exit()
+
+# def initial(dp_list):
+# 	out = []
+# 	for task in range(len(dp_list)):
+# 		x = antecessor_task(dp_list, task)
+# 		if (x == []):
+# 			out.append(task)
+# 	return out
