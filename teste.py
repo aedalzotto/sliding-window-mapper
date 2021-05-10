@@ -5,8 +5,6 @@
 
 import numpy as np
 
-APP_TASKS = 9
-
 X_SIZE = 8
 Y_SIZE = 8
 
@@ -15,12 +13,16 @@ PKG_MAX_LOCAL_TASKS = 4
 STRIDE = 2
 LAST_WINDOW = (STRIDE,STRIDE)
 
-#dependence_list = [5,-2,-3,-4,-5,0]
+#dependence_list = [5,-2,-3,-4,-5,0] #MPEG
 #dependence_list = [3,2,-3,-3,-1]
 #dependence_list = [3,-3,-3,-1]
 #dependence_list = [3,0,-1,-2]
 #dependence_list = [3,2,-3,-3,0]
 dependence_list = [5,-2,-3,0,2,-5,-3]
+
+APP_TASKS = dependence_list[0]
+
+mapped = [-1,-1,-1,-1,-1]
 
 def build_app(dp_list):
 	tam = len(dp_list) - 1
@@ -60,6 +62,7 @@ lista = build_app(dependence_list)
 #print(initial(lista))
 
 free_page_matrix = np.random.randint(PKG_MAX_LOCAL_TASKS + 1, size=(X_SIZE, Y_SIZE))
+pending = np.zeros((X_SIZE, Y_SIZE))
 print(free_page_matrix)
 
 def window_cost(x_start, y_start, w_size):
@@ -74,31 +77,45 @@ def window_cost(x_start, y_start, w_size):
 	if y_limit > Y_SIZE:
 		y_limit = Y_SIZE
 
+	min_free_pages = PKG_MAX_LOCAL_TASKS
+
 	for x in range(x_start, x_limit):
 		for y in range(y_start, y_limit):
 			free_page_cnt = free_page_cnt + free_page_matrix[x][y]
 			if (free_page_matrix[x][y] != 0):
 				free_page_pe = free_page_pe + 1
+				if (free_page_matrix[x][y] < min_free_pages):
+					min_free_pages = free_page_matrix[x][y]
 	
-	return free_page_cnt, free_page_pe
+	return free_page_cnt, free_page_pe, min_free_pages
 
 free_pages_window = 0
 selected_window = LAST_WINDOW
+pick_window = LAST_WINDOW
 w = int(np.sqrt(APP_TASKS/PKG_MAX_LOCAL_TASKS))
 if (w < 3):
 	w = 3
 
 #free_pages = window_cost(2, 2, 3)
 #print("Free pages = {:d}".format(free_pages))
-free_pe = 0
+task_per_pe = 0
 
 while (True):
 	#Alterar a busca para começar a partir da última janela selecionada
 	while (True):
-		free_pages,free_pe = window_cost(selected_window[0], selected_window[1], w)
+		free_pages,free_pe,min_free_pages = window_cost(selected_window[0], selected_window[1], w)
+		#print(free_pages)
+		#print(selected_window)
 		#print(free_pages)
 		if (free_pages > free_pages_window):
 			free_pages_window = free_pages
+			pick_window = selected_window
+			if (free_pe >= APP_TASKS): #mono task
+				task_per_pe = 1
+			elif (min_free_pages * free_pe >= APP_TASKS):
+				task_per_pe = min_free_pages
+			else:
+				task_per_pe = PKG_MAX_LOCAL_TASKS
 			if (free_pages_window >= (w**2 * PKG_MAX_LOCAL_TASKS)): #totalmente livre
 				break
 		if ((selected_window[1] + STRIDE) < Y_SIZE and (selected_window[1] + w != Y_SIZE)): 
@@ -113,18 +130,15 @@ while (True):
 			selected_window = (0,0)
 		if (selected_window == LAST_WINDOW):
 			break
-		print(selected_window)
-		print(free_pages)
-	print(selected_window)
-	print(free_pages)
 	if (free_pages_window >= APP_TASKS):
-		LAST_WINDOW = selected_window
+		LAST_WINDOW = pick_window
 		break
 	else:
 		w = w + 1
-		selected_window = (0,0) # VERIFICAR SE É (0,0) OU LAST_WINDOW
-print(free_pages_window)
-print(free_pe)
+		selected_window = (0,0) 
+# print(free_pages_window)
+# print(free_pe)
+# print(LAST_WINDOW)
 
 def map(t, selected_window, w):
 	# ignorar parte 1
@@ -138,29 +152,38 @@ def map(t, selected_window, w):
 	# If c for menor que cost
 	# atualiza cost e xy candidato
 	# Ao final quando encontrar xy ótimo decrementar uma página livre
-	cost = -1
+	cost = np.inf
 	sucessor_task = build_app(dependence_list)
 	list_comunicating = antecessor_task(sucessor_task, t) + sucessor_task[t]
+	selected_PE = (0,0)
+	list_comunicating = list(filter(lambda a: a != -1,list_comunicating))
 	print(list_comunicating)
+	if (mapped[t] != -1):
+		return "Error! Task já mapeada"
 
 	for x in range(selected_window[0], selected_window[0] + w):
 		for y in range(selected_window[1], selected_window[1] + w):
-			if (free_page_matrix[x][y] != 0): #PE apto a receber a task t
-				# COMO SABER SE AS TASKS ANTECESSORAS E SUCESSOR ESTAM MAPEADAS (???)
-				##### ERRO ENCONTRADO!!! #####
-				# NÃO TEM VARIAVEL COM A JANELA SELECIONADA, SABEMOS SÓ A CAPACIDADE MAXIMA DA JANELA (free_pages_window)
-				# E A QUANTIDADE DE PE'S DISPONIVEIS NESTA JANELA (free_pe)
+			if (free_page_matrix[x][y] != 0 and pending[x][y] < task_per_pe): #PE apto a receber a task t
 				c = 0
-				
-
+				for aux in list_comunicating:
+					#print(aux)
+					if (mapped[aux] != -1): #task sucessora ou antecessora mapeada
+						#print(mapped[aux])
+						c = c + abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y) #cost igual a distancia Mahantan
+						print("C  ",c)
 				if (c < cost):
 					cost = c
 					selected_PE = (x,y)
+					mapped[t] = (x,y) #task t mapeada
 	free_page_matrix[selected_PE[0]][selected_PE[1]] = free_page_matrix[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
+	pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
 	return selected_PE
 
-print(LAST_WINDOW)
-print(selected_window)
-print(w)
-print(free_page_matrix[0][0])
-map(0,selected_window,w)
+print(pick_window)
+print("Task 0", map(0,pick_window,w))
+print("Task 1", map(1,pick_window,w))
+print("Task 2", map(2,pick_window,w))
+print("Task 3", map(3,pick_window,w))
+
+
+
