@@ -5,6 +5,7 @@
 
 import numpy as np
 import argparse
+import os
 
 def build_app(app_descr):
 	descr_len = len(app_descr) - 1
@@ -129,32 +130,6 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, ta
 
 	return selected_PE
 
-################################################################################
-
-parser = argparse.ArgumentParser(description='Sliding window mapper for many-cores')
-parser.add_argument('size', type=int, help="many-core dimension in either X or Y")
-parser.add_argument('page_number', type=int, help="many-core page number for each PE")
-
-parser.add_argument('--w', type=int, help="sliding window starting size", default=3)
-parser.add_argument('--stride', type=int, help="sliding window stride", default=2)
-
-args = parser.parse_args()
-
-PKG_MAX_LOCAL_TASKS = args.page_number
-PKG_MIN_W = args.w
-PKG_STRIDE = args.stride
-
-PKG_X_SIZE = args.size
-PKG_Y_SIZE = args.size
-
-print("Sliding window mapper for many-cores")
-print("\tMany-core size: {}x{}".format(PKG_X_SIZE, PKG_Y_SIZE))
-print("\tMaximum tasks per PE: {}".format(PKG_MAX_LOCAL_TASKS))
-print("\tSliding window mininum size: {}".format(PKG_MIN_W))
-print("\tSliding window stride: {}".format(PKG_STRIDE))
-
-################################################################################
-
 applications = {
 	"aes": [9, 2, 3, 4, 5, 6, 7, 8, -9, -1, -1, -1, -1, -1, -1, -1, -1],
 	"dijkstra": [7, -7, -7, -7, -7, -7, 1, 2, 3, 4, -5, 0],
@@ -168,8 +143,79 @@ applications = {
 	"VOPD": [12, 4, -8, -3, -9, -3, -1, -11, -5, -4, -12, -7, 6, -12, -6]
 }
 
+app_tasks = {
+	"aes": ["aes_master", "aes_slave_1", "aes_slave_2", "aes_slave_3", "aes_slave_4", "aes_slave_5", "aes_slave_6", "aes_slave_7", "aes_slave_8"],
+	"dijkstra": ["dijkstra_0", "dijkstra_1", "dijkstra_2", "dijkstra_3", "dijkstra_4", "divider", "print"],
+	"dtw": ["bank", "p1", "p2", "p3", "p4", "recognizer"],
+	"fixe_base_test_16": ["DLAB", "DRGB", "DXYZ", "GFC", "LAB1", "LAB2", "P1", "P2", "RGB1", "RGB2", "RMS", "WRMS", "XYZ1", "XYZ2"],
+	"mpeg": ["idct", "iquant", "ivlc", "print", "start"],
+	"MPEG4": ["ADSP_0", "AU_0", "BAB_0", "MCPU_0", "RAST_0", "RISC_0", "SDRAM_0", "SRAM1_0", "SRAM2_0", "UPSAMP_0", "VU_0"],
+	"MWD": ["BLEND", "HS", "HVS", "IN", "JUG1", "JUG2", "MEM1", "MEM2", "MEM3", "NR", "SE", "VS"],
+	"prod_cons": ["cons", "prod"],
+	"synthetic1": ["taskA", "taskB", "taskC", "taskD", "taskE", "taskF"],
+	"VOPD": ["ACDC_0", "ARM_0", "IDCT2_0", "IQUANT_0", "ISCAN_0", "PAD_0", "RUN_0", "STRIPEM_0", "UPSAMP_0", "VLD_0", "VOPME_0", "VOPREC_0"]
+}
+
+def generate_platform(name, size, apps):
+	os.makedirs(name+"/debug", exist_ok=True)
+	f = open(name+"/debug/platform.cfg", "w")
+	f.write("router_addressing XY\n")
+	f.write("channel_number 1\n")
+	f.write("mpsoc_x "+str(size)+"\n")
+	f.write("mpsoc_y "+str(size)+"\n")
+	f.write("flit_size 32\n")
+	f.write("clock_period_ns 10\n")
+	f.write("cluster_x "+str(size)+"\n")
+	f.write("cluster_y "+str(size)+"\n")
+	f.write("manager_position_x "+str(size)+"\n")
+	f.write("manager_position_y "+str(size)+"\n")
+	f.write("BEGIN_task_name_relation\n")
+	for i in apps.keys():
+		for x in range(len(app_tasks[apps[i]])):
+			f.write(app_tasks[apps[i]][x]+" "+str((i << 8) + x)+"\n")
+	f.write("END_task_name_relation\n")
+	f.write("BEGIN_app_name_relation\n")
+	for i in apps.keys():
+		f.write(apps[i]+" "+str(i)+"\n")
+	f.write("END_app_name_relation\n")
+	f.close()
+	return
+
+################################################################################
+
+parser = argparse.ArgumentParser(description='Sliding window mapper for many-cores')
+parser.add_argument('size', type=int, help="many-core dimension in either X or Y")
+parser.add_argument('page_number', type=int, help="many-core page number for each PE")
+parser.add_argument('test_name', help="output name for this program session")
+
+parser.add_argument('--w', type=int, help="sliding window starting size", default=3)
+parser.add_argument('--stride', type=int, help="sliding window stride", default=2)
+
+args = parser.parse_args()
+
+PKG_MAX_LOCAL_TASKS = args.page_number
+PKG_MIN_W = args.w
+PKG_STRIDE = args.stride
+
+PKG_X_SIZE = args.size
+PKG_Y_SIZE = args.size
+test_name = args.test_name
+
+print("Sliding window mapper for many-cores")
+print("Scenario name: {}".format(test_name))
+print("\tMany-core size: {}x{}".format(PKG_X_SIZE, PKG_Y_SIZE))
+print("\tMaximum tasks per PE: {}".format(PKG_MAX_LOCAL_TASKS))
+print("\tSliding window mininum size: {}".format(PKG_MIN_W))
+print("\tSliding window stride: {}".format(PKG_STRIDE))
+
+## Create a platform description log
+generate_platform(test_name, PKG_X_SIZE, {})
+
+################################################################################
+
 free_pages_system = PKG_MAX_LOCAL_TASKS * PKG_X_SIZE * PKG_Y_SIZE
 running = {}
+apps_history = {}
 appid = 0
 manycore = np.full((PKG_X_SIZE, PKG_Y_SIZE), PKG_MAX_LOCAL_TASKS)
 last_selected_window = (0, 0)
@@ -225,7 +271,8 @@ while opt == -1:
 						# print(pending)
 
 					running[appid] = (mapped, app_opt)
-					# running.append((appid, ))
+					apps_history[appid] = app_opt
+					generate_platform(test_name, PKG_X_SIZE, apps_history)
 					print(running[appid])
 					appid = appid + 1
 						
