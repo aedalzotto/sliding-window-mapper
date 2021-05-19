@@ -47,6 +47,8 @@ def window_cost(manycore, x_start, y_start, w_size, x_size, y_size, max_local_ta
 def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size, last_selected_window):
 	if w**2 * max_local_tasks < task_cnt:
 		w = int(np.sqrt(task_cnt/max_local_tasks))
+
+	# print("W = {}".format(w))
 	
 	selected_window = last_selected_window
 	picked_window = selected_window
@@ -56,9 +58,8 @@ def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size
 	while True:
 		while True:
 			free_pages, free_pe, min_free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size, max_local_tasks)
-			#print(free_pages)
-			#print(selected_window)
-			#print(free_pages)
+			# print("Window = {}".format(selected_window))
+			# print("Pages = {}".format(free_pages))
 
 			if free_pages > free_pages_window:
 				free_pages_window = free_pages
@@ -68,20 +69,20 @@ def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size
 				if tasks_per_pe > min_free_pages:		# Guarantee worst case
 					tasks_per_pe = PKG_MAX_LOCAL_TASKS
 
-				if free_pages_window >= w**2 * max_local_tasks: #totalmente livre
+				if free_pages_window == w**2 * max_local_tasks: #totalmente livre
 					break
 
-			if selected_window[1] + stride < y_size and selected_window[1] + w != y_size:
-				selected_window = (selected_window[0], selected_window[1] + stride)
-
-				if selected_window[1] + w > y_size:
-					selected_window = (selected_window[0], y_size - w)
-
-			elif selected_window[0] + w != x_size:
-				selected_window = (selected_window[0] + stride, 0)
+			if selected_window[0] + w < x_size:
+				selected_window = (selected_window[0] + stride, selected_window[1])
 
 				if selected_window[0] + w > x_size:
-					selected_window = (x_size - w,selected_window[1])
+					selected_window = (x_size - w, selected_window[1])
+
+			elif selected_window[1] + w < y_size:
+				selected_window = (0, selected_window[1] + stride)
+
+				if selected_window[1] + w > y_size:
+					selected_window = (0, y_size - w)
 
 			else:
 				selected_window = (0, 0)
@@ -93,7 +94,7 @@ def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size
 			break
 		else:
 			w = w + 1
-			selected_window = last_selected_window
+			last_selected_window = (0, 0)
 
 	return picked_window, tasks_per_pe, w
 
@@ -116,14 +117,19 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, ta
 
 	for x in range(selected_window[0], selected_window[0] + selected_w):
 		for y in range(selected_window[1], selected_window[1] + selected_w):
-			if manycore[x][y] != 0 and pending[x][y] < tasks_per_pe: #PE apto a receber a task t
+			if manycore[x][y] != 0: #PE apto a receber a task t
 				c = 0
+				c = c + pending[x][y]*4 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
+				c = c + ((PKG_MAX_LOCAL_TASKS - manycore[x][y]))*2 # Terceiro critério: número de páginas ocupadas no PE
+				# print("Custo {}x{} pré = {}".format(x,y,c))
 				for aux in communicating:
-					#print(aux)
-					if mapped[aux] != -1: #task sucessora ou antecessora mapeada
+					# print("Tarefa comunicante {} mapeada em {}".format(aux, mapped[aux]))
+					if mapped[aux] != (-1, -1): #task sucessora ou antecessora mapeada
 						#print(mapped[aux])
-						c = c + abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y) #cost igual a distancia Mahantan
+						c = c + (abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y))*1 # Distância Manhattan: critério de maior importância
 						# print("C  ",c)
+
+				# print("Custo {}x{} pós = {}".format(x,y,c))
 				if (c < cost):
 					cost = c
 					selected_PE = (x, y)
@@ -157,7 +163,6 @@ app_tasks = {
 }
 
 def generate_platform(name, size, apps):
-	os.makedirs(name+"/debug", exist_ok=True)
 	f = open(name+"/debug/platform.cfg", "w")
 	f.write("router_addressing XY\n")
 	f.write("channel_number 1\n")
@@ -209,7 +214,16 @@ print("\tSliding window mininum size: {}".format(PKG_MIN_W))
 print("\tSliding window stride: {}".format(PKG_STRIDE))
 
 ## Create a platform description log
+os.makedirs(test_name+"/debug", exist_ok=True)
 generate_platform(test_name, PKG_X_SIZE, {})
+
+services = open(test_name+"/debug/services.cfg", "w")
+services.write("TASK_ALLOCATION 40\n")
+services.write("TASK_TERMINATED 70\n")
+services.write("\n")
+services.write("$TASK_ALLOCATION_SERVICE 40 221\n")
+services.write("$TASK_TERMINATED_SERVICE 70 221\n")
+services.close()
 
 ################################################################################
 
@@ -247,7 +261,7 @@ while opt == -1:
 
 				task_cnt = app_descr[0]
 				if task_cnt > free_pages_system:
-					print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages))
+					print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages_system))
 					opt = -1
 					break
 
@@ -329,6 +343,7 @@ while opt == -1:
 		opt = -1
 		print("Invalid option, try again!")
 
+traffic.close()
 exit()
 
 # def initial(dp_list):
