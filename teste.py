@@ -4,6 +4,7 @@
 #
 
 import numpy as np
+import subprocess
 import argparse
 import os
 
@@ -184,7 +185,6 @@ def generate_platform(name, size, apps):
 		f.write(apps[i]+" "+str(i)+"\n")
 	f.write("END_app_name_relation\n")
 	f.close()
-	return
 
 ################################################################################
 
@@ -236,12 +236,15 @@ manycore = np.full((PKG_X_SIZE, PKG_Y_SIZE), PKG_MAX_LOCAL_TASKS)
 last_selected_window = (0, 0)
 
 traffic = open(test_name+"/debug/traffic_router.txt", "w")
+dbg_path = os.getenv('MEMPHIS_DEBUGGER_PATH')
+debugger = subprocess.Popen(["java", "-jar", dbg_path+"/Memphis_Debugger.jar", test_name+"/debug/platform.cfg"])
 
 opt = -1
 while opt == -1:
 	print("\nSelect an option:")
 	print("\tA - Add application")
 	print("\tR - Remove application")
+	print("\tD - Reset debugger")
 	print("\tE - Exit")
 	opt = input("Type your option: ")
 	if opt == 'A':
@@ -336,6 +339,10 @@ while opt == -1:
 					app_opt = -1
 					print("Invalid option, try again!")
 
+		opt = -1
+	elif opt == 'D':
+		debugger.terminate()
+		debugger = subprocess.Popen(["java", "-jar", dbg_path+"/Memphis_Debugger.jar", test_name+"/debug/platform.cfg"])
 		opt = -1
 	elif opt == 'E':
 		break
