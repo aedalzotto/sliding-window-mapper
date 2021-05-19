@@ -217,8 +217,11 @@ free_pages_system = PKG_MAX_LOCAL_TASKS * PKG_X_SIZE * PKG_Y_SIZE
 running = {}
 apps_history = {}
 appid = 0
+tick = 0
 manycore = np.full((PKG_X_SIZE, PKG_Y_SIZE), PKG_MAX_LOCAL_TASKS)
 last_selected_window = (0, 0)
+
+traffic = open(test_name+"/debug/traffic_router.txt", "w")
 
 opt = -1
 while opt == -1:
@@ -239,46 +242,53 @@ while opt == -1:
 			if app_opt == 'B':
 				break
 			else:
-				try:
-					app_descr = applications[app_opt]
+				# try:
+				app_descr = applications[app_opt]
 
-					task_cnt = app_descr[0]
-					if task_cnt > free_pages_system:
-						print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages))
-						opt = -1
-						break
+				task_cnt = app_descr[0]
+				if task_cnt > free_pages_system:
+					print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages))
+					opt = -1
+					break
 
-					free_pages_system = free_pages_system - task_cnt
-					print("free pages = "+str(free_pages_system))
-					
-					sucessors = build_app(app_descr)
-					selected_window, tasks_per_pe, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
-					print(selected_window)
-					print(selected_w)
-					last_selected_window = selected_window
+				free_pages_system = free_pages_system - task_cnt
+				print("free pages = "+str(free_pages_system))
+				
+				sucessors = build_app(app_descr)
+				selected_window, tasks_per_pe, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
+				print(selected_window)
+				print(selected_w)
+				last_selected_window = selected_window
 
-					pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
-					mapped = []
-					for x in range(task_cnt):
-						mapped.append((-1, -1))
+				pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
+				mapped = []
+				for x in range(task_cnt):
+					mapped.append((-1, -1))
 
-					for t in range(len(sucessors)):
-						selected_PE = map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe)
-						# print("Task "+str(t), selected_PE)
-						mapped[t] = selected_PE
-						manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
-						pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
-						# print(pending)
+				for t in range(len(sucessors)):
+					selected_PE = map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe)
+					# print("Task "+str(t), selected_PE)
+					mapped[t] = selected_PE
+					manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
+					pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
+					# print(pending)
 
-					running[appid] = (mapped, app_opt)
-					apps_history[appid] = app_opt
-					generate_platform(test_name, PKG_X_SIZE, apps_history)
-					print(running[appid])
-					appid = appid + 1
+				for t in range(task_cnt):
+					traffic.write(str(tick)+"\t"+str((mapped[t][0] << 8) + mapped[t][1])+"\t40\t0\t0\t0\t"+str((mapped[t][0] << 8) + mapped[t][1])+"\t"+str((appid << 8)+t)+"\n")
+
+				traffic.flush()
+				os.sync()
+
+				running[appid] = (mapped, app_opt)
+				apps_history[appid] = app_opt
+				generate_platform(test_name, PKG_X_SIZE, apps_history)
+				print(running[appid])
+				appid = appid + 1
+				tick = tick + 1
 						
-				except:
-					app_opt = -1
-					print("Invalid option, try again!")
+				# except:
+				# 	app_opt = -1
+				# 	print("Invalid option, try again!")
 		
 		opt = -1
 	elif opt == 'R':
@@ -295,12 +305,18 @@ while opt == -1:
 				break
 			else:
 				try:
-					app = running[int(app_opt)]
-					for pe in app[0]:
-						manycore[pe[0]][pe[1]] = manycore[pe[0]][pe[1]] + 1
+					app = running[int(app_opt)][0]
+					for i in range(len(app)):
+						manycore[app[i][0]][app[i][1]] = manycore[app[i][0]][app[i][1]] + 1
 						free_pages_system = free_pages_system + 1
+						traffic.write(str(tick)+"\t"+str((app[i][0] << 8)+app[i][1])+"\t70\t4\t0\t4\t-1\t"+str((int(app_opt) << 8)+i)+"\n")
+
+					traffic.flush()
+					os.sync()
 
 					del running[int(app_opt)]
+
+					tick = tick + 1
 
 				except:
 					app_opt = -1
