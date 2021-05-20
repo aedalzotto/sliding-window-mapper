@@ -366,7 +366,6 @@ while opt == -1:
 						traffic.write(str(tick)+"\t"+str((app[i][0] << 8)+app[i][1])+"\t70\t4\t0\t4\t-1\t"+str((int(app_opt) << 8)+i)+"\n")
 
 					traffic.flush()
-					os.sync()
 
 					del running[int(app_opt)]
 
