@@ -332,7 +332,6 @@ while opt == -1:
 					traffic.write(str(tick)+"\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t40\t0\t0\t0\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t"+str((appid << 8) + task)+"\n")
 
 				traffic.flush()
-				os.sync()
 
 				running[appid] = (mapped, app_opt)
 				apps_history[appid] = app_opt
