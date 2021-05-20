@@ -106,6 +106,42 @@ def antecessors(sucessors, t):
 			antecessors.append(x)
 	return antecessors
 
+def initial(sucessors):
+	initials = []
+	for task in range(len(sucessors)):
+		antecessors_list = antecessors(sucessors, task)
+		if antecessors_list == []:
+			initials.append(task)
+
+	return initials
+
+def order_sucessors(t, sucessors, mapping_order, ordered):
+	mapping_order.append(t)
+	while ordered < len(mapping_order):
+		for sucessor in sucessors[mapping_order[ordered]]:
+			if sucessor != -1 and sucessor not in mapping_order:
+				mapping_order.append(sucessor)
+		ordered = ordered + 1
+
+	return mapping_order, ordered
+
+def get_mapping_order(initials, sucessors):
+	ordered = 0
+	mapping_order = []
+	for initial in initials:
+		mapping_order, ordered = order_sucessors(initial, sucessors, mapping_order, ordered)
+
+	print(mapping_order)
+	if ordered < len(sucessors):
+		for task in range(len(sucessors)):
+			if task not in mapping_order:
+				mapping_order, ordered = order_sucessors(task, sucessors, mapping_order, ordered)
+
+	print(mapping_order)
+
+	return mapping_order
+
+
 def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe):
 	cost = np.inf
 	communicating = antecessors(sucessors, t) + sucessors[t]
@@ -156,7 +192,7 @@ app_tasks = {
 	"dtw": ["bank", "p1", "p2", "p3", "p4", "recognizer"],
 	"fixe_base_test_16": ["DLAB", "DRGB", "DXYZ", "GFC", "LAB1", "LAB2", "P1", "P2", "RGB1", "RGB2", "RMS", "WRMS", "XYZ1", "XYZ2"],
 	"mpeg": ["idct", "iquant", "ivlc", "print", "start"],
-	"MPEG4": ["ADSP_0", "AU_0", "BAB_0", "MCPU_0", "RAST_0", "RISC_0", "SDRAM_0", "SRAM1_0", "SRAM2_0", "UPSAMP_0", "VU_0"],
+	"MPEG4": ["ADSP_0", "AU_0", "BAB_0", "IDCT_0", "MCPU_0", "RAST_0", "RISC_0", "SDRAM_0", "SRAM1_0", "SRAM2_0", "UPSAMP_0", "VU_0"],
 	"MWD": ["BLEND", "HS", "HVS", "IN", "JUG1", "JUG2", "MEM1", "MEM2", "MEM3", "NR", "SE", "VS"],
 	"prod_cons": ["cons", "prod"],
 	"synthetic1": ["taskA", "taskB", "taskC", "taskD", "taskE", "taskF"],
@@ -282,16 +318,18 @@ while opt == -1:
 				for x in range(task_cnt):
 					mapped.append((-1, -1))
 
-				for t in range(len(sucessors)):
-					selected_PE = map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe)
+				initial_tasks = initial(sucessors)
+				mapping_order = get_mapping_order(initial_tasks, sucessors)					
+
+				for task in mapping_order:
+					selected_PE = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped, tasks_per_pe)
 					# print("Task "+str(t), selected_PE)
-					mapped[t] = selected_PE
+					mapped[task] = selected_PE
 					manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
 					pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
 					# print(pending)
-
-				for t in range(task_cnt):
-					traffic.write(str(tick)+"\t"+str((mapped[t][0] << 8) + mapped[t][1])+"\t40\t0\t0\t0\t"+str((mapped[t][0] << 8) + mapped[t][1])+"\t"+str((appid << 8)+t)+"\n")
+					tick = tick + 1
+					traffic.write(str(tick)+"\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t40\t0\t0\t0\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t"+str((appid << 8) + task)+"\n")
 
 				traffic.flush()
 				os.sync()
@@ -301,7 +339,6 @@ while opt == -1:
 				generate_platform(test_name, PKG_X_SIZE, apps_history)
 				print(running[appid])
 				appid = appid + 1
-				tick = tick + 1
 						
 				# except:
 				# 	app_opt = -1
@@ -326,14 +363,13 @@ while opt == -1:
 					for i in range(len(app)):
 						manycore[app[i][0]][app[i][1]] = manycore[app[i][0]][app[i][1]] + 1
 						free_pages_system = free_pages_system + 1
+						tick = tick + 1
 						traffic.write(str(tick)+"\t"+str((app[i][0] << 8)+app[i][1])+"\t70\t4\t0\t4\t-1\t"+str((int(app_opt) << 8)+i)+"\n")
 
 					traffic.flush()
 					os.sync()
 
 					del running[int(app_opt)]
-
-					tick = tick + 1
 
 				except:
 					app_opt = -1
@@ -351,12 +387,5 @@ while opt == -1:
 		print("Invalid option, try again!")
 
 traffic.close()
+debugger.terminate()
 exit()
-
-# def initial(dp_list):
-# 	out = []
-# 	for task in range(len(dp_list)):
-# 		x = antecessor_task(dp_list, task)
-# 		if (x == []):
-# 			out.append(task)
-# 	return out
