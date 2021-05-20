@@ -13,12 +13,23 @@ PKG_MAX_LOCAL_TASKS = 4
 STRIDE = 2
 LAST_WINDOW = (STRIDE,STRIDE)
 
-#dependence_list = [5,-2,-3,-4,-5,0] #MPEG
+# dependence_list = [9, 2, 3, 4, 5, 6, 7, 8, -9, -1, -1, -1, -1, -1, -1, -1, -1] #aes
+# dependence_list = [7, -7, -7, -7, -7, -7, 1, 2, 3, 4, -5, 0] #dijkstra
+# dependence_list = [6, 2, 3, 4, -5, -6, -6, -6, -6, 2, 3, 4, -5] #dtw
+# dependence_list = [14, 0, 0, 0, 0, -1, -1, 4, 11, 12, -13, 4, 11, 12, -14, -2, -2, 0, 0, 3, 5, -9, 3, 6, -10] #fixe_base_test_16
+# dependence_list = [5, -4, -1, -2, 0, -3] #mpeg
+# dependence_list = [12, -8, -8, -8, -10, -9, -8, -10, 1, 2, 3, 5, 6, 11, -12, -6, 3, 4, 7, -11, -8, 0] #MPEG4
+# dependence_list = [12, 0, -12, -6, 2, -10, -9, -9, -10, -3, -11, 7, -8, -1, -5] #MWD
+# dependence_list = [2, 0, -1] #prod_cons
+# dependence_list = [6, -3, -3, 4, -5, -6, -6, 0] #synthetic1
+# dependence_list = [12, 4, -8, -3, -9, -3, -1, -11, -5, -4, -12, -7, 6, -12, -6] #VOPD
+
+#dependence_list = [5,-2,-3,-4,-5,0] 
 #dependence_list = [3,2,-3,-3,-1]
-#dependence_list = [3,-3,-3,-1]
+dependence_list = [3,-3,-3,-1]
 #dependence_list = [3,0,-1,-2]
 #dependence_list = [3,2,-3,-3,0]
-dependence_list = [5,-2,-3,0,2,-5,-3]
+#dependence_list = [5,-2,-3,0,2,-5,-3]
 
 APP_TASKS = dependence_list[0]
 
@@ -57,7 +68,8 @@ def initial(dp_list):
 
 #print(dependence_list)
 lista = build_app(dependence_list)
-#print(lista)
+initial_task = initial(lista)
+print(lista)
 #print(antecessor_task(lista,2))
 #print(initial(lista))
 
@@ -179,11 +191,36 @@ def map(t, selected_window, w):
 	pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
 	return selected_PE
 
-print(pick_window)
-print("Task 0", map(0,pick_window,w))
-print("Task 1", map(1,pick_window,w))
-print("Task 2", map(2,pick_window,w))
-print("Task 3", map(3,pick_window,w))
+print("pick_window: ", pick_window)
+print("Janela: ")
+for x in range(pick_window[0], pick_window[0] + w):
+	for y in range(pick_window[1], pick_window[1] + w):
+		print(free_page_matrix[x][y], end=" ")
+	print(" ")
 
+# print("Task 0", map(0,pick_window,w))
+# print("Task 1", map(1,pick_window,w))
+# print("Task 2", map(2,pick_window,w))
+# print("Task 3", map(3,pick_window,w))
 
-
+# vetor ordem de mapeamento
+mapping_order = [initial_task[0]] #inicial 
+j_initial = 0
+for i in range(1,len(initial_task) + 1,1):
+	for j in range(j_initial,APP_TASKS,1):
+		#print(j,mapping_order)
+		next_task = mapping_order[j]
+		if (lista[next_task] != [-1]): #Verifica se há sucessoras
+			for k in range(len(lista[next_task])):
+				#print(k, next_task, lista[next_task], mapping_order)
+				if (lista[next_task][k] not in mapping_order):
+					mapping_order = mapping_order + [lista[next_task][k]]
+					#print("aqui")
+		else:
+			if (len(initial_task) != 1):
+				mapping_order = mapping_order + [initial_task[i]]
+				j_initial = j + 1
+			break
+		
+print(mapping_order)
+print(mapped)
