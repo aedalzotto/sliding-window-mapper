@@ -273,8 +273,8 @@ while opt == -1:
 				
 				sucessors = build_app(app_descr)
 				selected_window, tasks_per_pe, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
-				print(selected_window)
-				print(selected_w)
+				# print(selected_window)
+				# print(selected_w)
 				last_selected_window = selected_window
 
 				pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
