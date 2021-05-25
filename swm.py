@@ -7,6 +7,7 @@ import numpy as np
 import subprocess
 import argparse
 import os
+import sys
 
 def build_app(app_descr):
 	descr_len = len(app_descr) - 1
@@ -21,83 +22,86 @@ def build_app(app_descr):
 			aux = []
 	return sucessors
 
-def window_cost(manycore, x_start, y_start, w_size, x_size, y_size, max_local_tasks):
+def window_cost(manycore, x_start, y_start, w_size, x_size, y_size):
 	free_page_cnt = 0
-	free_page_pe = 0
 
-	x_limit = x_start + w_size
+	x_limit = x_start + w_size[0]
 	if x_limit > x_size:
 		x_limit = x_size
 
-	y_limit = y_start + w_size
+	y_limit = y_start + w_size[1]
 	if y_limit > y_size:
 		y_limit = y_size
-
-	min_free_pages = max_local_tasks
 
 	for x in range(x_start, x_limit):
 		for y in range(y_start, y_limit):
 			free_page_cnt = free_page_cnt + manycore[x][y]
-			if (manycore[x][y] != 0):
-				free_page_pe = free_page_pe + 1
-				if (manycore[x][y] < min_free_pages):
-					min_free_pages = manycore[x][y]
 	
-	return free_page_cnt, free_page_pe, min_free_pages
+	return free_page_cnt
+
+def next_window(selected_window, w, x_size, y_size, stride):
+	if selected_window[0] + w[0] < x_size:
+		selected_window = (selected_window[0] + stride, selected_window[1])
+
+		if selected_window[0] + w[0] > x_size:
+			selected_window = (x_size - w[0], selected_window[1])
+
+	elif selected_window[1] + w[1] < y_size:
+		selected_window = (0, selected_window[1] + stride)
+
+		if selected_window[1] + w[1] > y_size:
+			selected_window = (0, y_size - w[1])
+
+	else:
+		selected_window = (0, 0)
+
+	return selected_window
 
 def window_search(manycore, task_cnt, w, stride, max_local_tasks, x_size, y_size, last_selected_window):
-	if w**2 * max_local_tasks < task_cnt:
-		w = int(np.sqrt(task_cnt/max_local_tasks))
+	raise_x = False
 
-	# print("W = {}".format(w))
+	while w[0]*w[1]*max_local_tasks < task_cnt:
+		if raise_x:
+			w = (w[0] + 1, w[1])
+			raise_x = False
+		else:
+			w = (w[0], w[1] + 1)
+			raise_x = True
+		last_selected_window = (PKG_X_SIZE - w[0], PKG_Y_SIZE - w[1])			
 	
-	selected_window = last_selected_window
-	picked_window = selected_window
-	tasks_per_pe = 0
-	free_pages_window = 0
+	selected_window = next_window(last_selected_window, w, x_size, y_size, stride)
 
 	while True:
-		while True:
-			free_pages, free_pe, min_free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size, max_local_tasks)
-			# print("Window = {}".format(selected_window))
-			# print("Pages = {}".format(free_pages))
+		while selected_window[0] > last_selected_window[0] or selected_window[1] > last_selected_window[1]:
+			free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size)
 
-			if free_pages > free_pages_window:
-				free_pages_window = free_pages
-				picked_window = selected_window
+			if free_pages >= task_cnt:
+				return selected_window, w
 
-				tasks_per_pe = int(task_cnt/free_pe) + (1 if task_cnt % free_pe else 0)
-				if tasks_per_pe > min_free_pages:		# Guarantee worst case
-					tasks_per_pe = PKG_MAX_LOCAL_TASKS
+			selected_window = next_window(selected_window, w, x_size, y_size, stride)
 
-				if free_pages_window == w**2 * max_local_tasks: #totalmente livre
-					break
+		while selected_window[0] < last_selected_window[0] or selected_window[1] < last_selected_window[1]:
+			free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size)
 
-			if selected_window[0] + w < x_size:
-				selected_window = (selected_window[0] + stride, selected_window[1])
+			if free_pages >= task_cnt:
+				return selected_window, w
 
-				if selected_window[0] + w > x_size:
-					selected_window = (x_size - w, selected_window[1])
+			selected_window = next_window(selected_window, w, x_size, y_size, stride)
 
-			elif selected_window[1] + w < y_size:
-				selected_window = (0, selected_window[1] + stride)
+		# Verify the last one ("equal" to the last_selected_window)
+		free_pages = window_cost(manycore, selected_window[0], selected_window[1], w, x_size, y_size)
 
-				if selected_window[1] + w > y_size:
-					selected_window = (0, y_size - w)
+		if free_pages >= task_cnt:
+			return selected_window, w
 
-			else:
-				selected_window = (0, 0)
-
-			if selected_window == last_selected_window:
-				break
-			 
-		if free_pages_window >= task_cnt:
-			break
+		if raise_x:
+			w = (w[0] + 1, w[1])
+			raise_x = False
 		else:
-			w = w + 1
-			last_selected_window = (0, 0)
-
-	return picked_window, tasks_per_pe, w
+			w = (w[0], w[1] + 1)
+			raise_x = True
+		last_selected_window = (PKG_X_SIZE - w[0], PKG_Y_SIZE - w[1])
+		selected_window = next_window(last_selected_window, w, x_size, y_size, stride)
 
 def antecessors(sucessors, t):
 	antecessors = []
@@ -142,7 +146,7 @@ def get_mapping_order(initials, sucessors):
 	return mapping_order
 
 
-def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, tasks_per_pe):
+def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 	cost = np.inf
 	communicating = antecessors(sucessors, t) + sucessors[t]
 	communicating = list(filter(lambda a: a != -1, communicating))
@@ -152,12 +156,13 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped, ta
 	if mapped[t] != (-1, -1):
 		return "Task already mapped"
 
-	for x in range(selected_window[0], selected_window[0] + selected_w):
-		for y in range(selected_window[1], selected_window[1] + selected_w):
+	for x in range(selected_window[0], selected_window[0] + selected_w[0]):
+		for y in range(selected_window[1], selected_window[1] + selected_w[1]):
+			print("PE {}x{}".format(x, y))
 			if manycore[x][y] != 0: #PE apto a receber a task t
 				c = 0
-				c = c + pending[x][y]*4 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
-				c = c + ((PKG_MAX_LOCAL_TASKS - manycore[x][y]))*2 # Terceiro critério: número de páginas ocupadas no PE
+				c = c + ((PKG_MAX_LOCAL_TASKS - manycore[x][y]))*4 # Terceiro critério: número de páginas ocupadas no PE
+				c = c + pending[x][y]*2 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
 				# print("Custo {}x{} pré = {}".format(x,y,c))
 				for aux in communicating:
 					# print("Tarefa comunicante {} mapeada em {}".format(aux, mapped[aux]))
@@ -235,7 +240,7 @@ parser.add_argument('--stride', type=int, help="sliding window stride", default=
 args = parser.parse_args()
 
 PKG_MAX_LOCAL_TASKS = args.page_number
-PKG_MIN_W = args.w
+PKG_MIN_W = (args.w, args.w)
 PKG_STRIDE = args.stride
 
 PKG_X_SIZE = args.size
@@ -269,7 +274,7 @@ apps_history = {}
 appid = 0
 tick = 0
 manycore = np.full((PKG_X_SIZE, PKG_Y_SIZE), PKG_MAX_LOCAL_TASKS)
-last_selected_window = (0, 0)
+last_selected_window = (PKG_X_SIZE - PKG_MIN_W[0], PKG_X_SIZE - PKG_MIN_W[1])
 
 traffic = open(test_name+"/debug/traffic_router.txt", "w")
 dbg_path = os.getenv('MEMPHIS_DEBUGGER_PATH')
@@ -308,8 +313,8 @@ while opt == -1:
 				print("free pages = "+str(free_pages_system))
 				
 				sucessors = build_app(app_descr)
-				selected_window, tasks_per_pe, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
-				# print(selected_window)
+				selected_window, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
+				print("Selected window is {} with w={}".format(selected_window, selected_w))
 				# print(selected_w)
 				last_selected_window = selected_window
 
@@ -322,7 +327,7 @@ while opt == -1:
 				mapping_order = get_mapping_order(initial_tasks, sucessors)					
 
 				for task in mapping_order:
-					selected_PE = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped, tasks_per_pe)
+					selected_PE = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped)
 					# print("Task "+str(t), selected_PE)
 					mapped[task] = selected_PE
 					manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
@@ -386,4 +391,4 @@ while opt == -1:
 
 traffic.close()
 debugger.terminate()
-exit()
+sys.exit()
