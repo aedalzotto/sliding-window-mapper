@@ -135,13 +135,13 @@ def get_mapping_order(initials, sucessors):
 	for initial in initials:
 		mapping_order, ordered = order_sucessors(initial, sucessors, mapping_order, ordered)
 
-	print(mapping_order)
+	# print(mapping_order)
 	if ordered < len(sucessors):
 		for task in range(len(sucessors)):
 			if task not in mapping_order:
 				mapping_order, ordered = order_sucessors(task, sucessors, mapping_order, ordered)
 
-	print(mapping_order)
+	# print(mapping_order)
 
 	return mapping_order
 
@@ -156,11 +156,14 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 	if mapped[t] != (-1, -1):
 		return "Task already mapped"
 
+	manhattan = 0
+
 	for x in range(selected_window[0], selected_window[0] + selected_w[0]):
 		for y in range(selected_window[1], selected_window[1] + selected_w[1]):
-			print("PE {}x{}".format(x, y))
+			# print("PE {}x{}".format(x, y))
 			if manycore[x][y] != 0: #PE apto a receber a task t
 				c = 0
+				m_dist = 0
 				c = c + ((PKG_MAX_LOCAL_TASKS - manycore[x][y]))*4 # Terceiro critério: número de páginas ocupadas no PE
 				c = c + pending[x][y]*2 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
 				# print("Custo {}x{} pré = {}".format(x,y,c))
@@ -168,15 +171,26 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 					# print("Tarefa comunicante {} mapeada em {}".format(aux, mapped[aux]))
 					if mapped[aux] != (-1, -1): #task sucessora ou antecessora mapeada
 						#print(mapped[aux])
-						c = c + (abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y))*1 # Distância Manhattan: critério de maior importância
+						dist_calc = (abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y))
+						m_dist += dist_calc
+						c = c + dist_calc*1 # Distância Manhattan: critério de maior importância
 						# print("C  ",c)
 
 				# print("Custo {}x{} pós = {}".format(x,y,c))
 				if (c < cost):
 					cost = c
+					manhattan = m_dist
 					selected_PE = (x, y)
 
-	return selected_PE
+	return selected_PE, manhattan
+
+def edge_number(sucessors):
+	edges = 0
+	for sucessor_list in sucessors:
+		if sucessor_list[0] != -1:
+			edges += len(sucessor_list)
+
+	return edges
 
 applications = {
 	"aes": [9, 2, 3, 4, 5, 6, 7, 8, -9, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -300,53 +314,57 @@ while opt == -1:
 			if app_opt == 'B':
 				break
 			else:
-				# try:
-				app_descr = applications[app_opt]
+				try:
+					app_descr = applications[app_opt]
 
-				task_cnt = app_descr[0]
-				if task_cnt > free_pages_system:
-					print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages_system))
-					opt = -1
-					break
+					task_cnt = app_descr[0]
+					if task_cnt > free_pages_system:
+						print("Not enough free pages. App requires {} and system has {} free.".format(task_cnt, free_pages_system))
+						opt = -1
+						break
 
-				free_pages_system = free_pages_system - task_cnt
-				print("free pages = "+str(free_pages_system))
-				
-				sucessors = build_app(app_descr)
-				selected_window, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
-				print("Selected window is {} with w={}".format(selected_window, selected_w))
-				# print(selected_w)
-				last_selected_window = selected_window
+					free_pages_system = free_pages_system - task_cnt
+					# print("free pages = "+str(free_pages_system))
+					
+					sucessors = build_app(app_descr)
+					selected_window, selected_w = window_search(manycore, task_cnt, PKG_MIN_W, PKG_STRIDE, PKG_MAX_LOCAL_TASKS, PKG_X_SIZE, PKG_Y_SIZE, last_selected_window)
+					# print("Selected window is {} with w={}".format(selected_window, selected_w))
+					# print(selected_w)
+					last_selected_window = selected_window
 
-				pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
-				mapped = []
-				for x in range(task_cnt):
-					mapped.append((-1, -1))
+					pending = np.zeros((PKG_X_SIZE, PKG_Y_SIZE))
+					mapped = []
+					for x in range(task_cnt):
+						mapped.append((-1, -1))
 
-				initial_tasks = initial(sucessors)
-				mapping_order = get_mapping_order(initial_tasks, sucessors)					
+					initial_tasks = initial(sucessors)
+					mapping_order = get_mapping_order(initial_tasks, sucessors)					
 
-				for task in mapping_order:
-					selected_PE = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped)
-					# print("Task "+str(t), selected_PE)
-					mapped[task] = selected_PE
-					manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
-					pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
-					# print(pending)
-					tick = tick + 1
-					traffic.write(str(tick)+"\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t40\t0\t0\t0\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t"+str((appid << 8) + task)+"\n")
+					manhattan_sum = 0
+					for task in mapping_order:
+						selected_PE, manhattan = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped)
+						manhattan_sum += manhattan
+						# print("Task "+str(t), selected_PE)
+						mapped[task] = selected_PE
+						manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
+						pending[selected_PE[0]][selected_PE[1]] = pending[selected_PE[0]][selected_PE[1]] + 1
+						# print(pending)
+						tick = tick + 1
+						traffic.write(str(tick)+"\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t40\t0\t0\t0\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t"+str((appid << 8) + task)+"\n")
 
-				traffic.flush()
+					print("Distância Manhattan média = {}".format(manhattan_sum / edge_number(sucessors)))
 
-				running[appid] = (mapped, app_opt)
-				apps_history[appid] = app_opt
-				generate_platform(test_name, PKG_X_SIZE, apps_history)
-				print(running[appid])
-				appid = appid + 1
+					traffic.flush()
+
+					running[appid] = (mapped, app_opt)
+					apps_history[appid] = app_opt
+					generate_platform(test_name, PKG_X_SIZE, apps_history)
+					# print(running[appid])
+					appid = appid + 1
 						
-				# except:
-				# 	app_opt = -1
-				# 	print("Invalid option, try again!")
+				except:
+					app_opt = -1
+					print("Invalid option, try again!")
 		
 		opt = -1
 	elif opt == 'R':
