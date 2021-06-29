@@ -164,7 +164,7 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 			if manycore[x][y] != 0: #PE apto a receber a task t
 				c = 0
 				m_dist = 0
-				c = c + ((PKG_MAX_LOCAL_TASKS - manycore[x][y]))*4 # Terceiro critério: número de páginas ocupadas no PE
+				c = c + (PKG_MAX_LOCAL_TASKS - (manycore[x][y] + pending[x][y]))*4 # Terceiro critério: número de páginas ocupadas no PE
 				c = c + pending[x][y]*2 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
 				# print("Custo {}x{} pré = {}".format(x,y,c))
 				for aux in communicating:
