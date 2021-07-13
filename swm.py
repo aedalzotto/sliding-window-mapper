@@ -194,26 +194,32 @@ def edge_number(sucessors):
 
 applications = {
 	"aes": [9, 2, 3, 4, 5, 6, 7, 8, -9, -1, -1, -1, -1, -1, -1, -1, -1],
+	"audio_video": [7, -6, -1, -6, -3, -4, 0, 2, -5], #FIR is task 0 because is uppercase
 	"dijkstra": [7, -7, -7, -7, -7, -7, 1, 2, 3, 4, -5, 0],
 	"dtw": [6, 2, 3, 4, -5, -6, -6, -6, -6, 2, 3, 4, -5],
 	"fixe_base_test_16": [14, 0, 0, 0, 0, -1, -1, 4, 11, 12, -13, 4, 11, 12, -14, -2, -2, 0, 0, 3, 5, -9, 3, 6, -10],
+	"matrix_multi_master_slave": [6, 2, 3, 4, 5, -6, -1, -1, -1, -1, -1],
 	"mpeg": [5, -4, -1, -2, 0, -3],
 	"MPEG4": [12, -8, -8, -8, -10, -9, -8, -10, 1, 2, 3, 5, 6, 11, -12, -6, 3, 4, 7, -11, -8, 0],
 	"MWD": [12, 0, -12, -6, 2, -10, -9, -9, -10, -3, -11, 7, -8, -1, -5],
 	"prod_cons": [2, 0, -1],
+	"quicksort_divider_conquer": [15, 3, 4, -15, 5, 6, -15, 1, 7, -8, 1, 9, -10, 2, 11, -12, 2, 13, -14, -3, -3, -4, -4, -5, -5, -6, -6, 1, -2],
 	"synthetic1": [6, -3, -3, 4, -5, -6, -6, 0],
 	"VOPD": [12, 4, -8, -3, -9, -3, -1, -11, -5, -4, -12, -7, 6, -12, -6]
 }
 
 app_tasks = {
 	"aes": ["aes_master", "aes_slave_1", "aes_slave_2", "aes_slave_3", "aes_slave_4", "aes_slave_5", "aes_slave_6", "aes_slave_7", "aes_slave_8"],
+	"audio_video": ["FIR", "adpcm_dec", "idct", "iquant", "ivlc", "join", "split"], #FIR is task 0 because is uppercase
 	"dijkstra": ["dijkstra_0", "dijkstra_1", "dijkstra_2", "dijkstra_3", "dijkstra_4", "divider", "print"],
 	"dtw": ["bank", "p1", "p2", "p3", "p4", "recognizer"],
 	"fixe_base_test_16": ["DLAB", "DRGB", "DXYZ", "GFC", "LAB1", "LAB2", "P1", "P2", "RGB1", "RGB2", "RMS", "WRMS", "XYZ1", "XYZ2"],
+	"matrix_multi_master_slave": ["master", "slave1", "slave2", "slave3", "slave4","slave51"],
 	"mpeg": ["idct", "iquant", "ivlc", "print", "start"],
 	"MPEG4": ["ADSP_0", "AU_0", "BAB_0", "IDCT_0", "MCPU_0", "RAST_0", "RISC_0", "SDRAM_0", "SRAM1_0", "SRAM2_0", "UPSAMP_0", "VU_0"],
 	"MWD": ["BLEND", "HS", "HVS", "IN", "JUG1", "JUG2", "MEM1", "MEM2", "MEM3", "NR", "SE", "VS"],
 	"prod_cons": ["cons", "prod"],
+	"quicksort_divider_conquer": ["sorting_1", "sorting_2", "sorting_3", "sorting_4", "sorting_5", "sorting_6", "sorting_7", "sorting_8", "sorting_9", "sorting_10", "sorting_11", "sorting_12", "sorting_13", "sorting_14", "sorting_master"],
 	"synthetic1": ["taskA", "taskB", "taskC", "taskD", "taskE", "taskF"],
 	"VOPD": ["ACDC_0", "ARM_0", "IDCT2_0", "IQUANT_0", "ISCAN_0", "PAD_0", "RUN_0", "STRIPEM_0", "UPSAMP_0", "VLD_0", "VOPME_0", "VOPREC_0"]
 }
