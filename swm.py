@@ -156,14 +156,11 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 	if mapped[t] != (-1, -1):
 		return "Task already mapped"
 
-	manhattan = 0
-
 	for x in range(selected_window[0], selected_window[0] + selected_w[0]):
 		for y in range(selected_window[1], selected_window[1] + selected_w[1]):
 			# print("PE {}x{}".format(x, y))
 			if manycore[x][y] != 0: #PE apto a receber a task t
 				c = 0
-				m_dist = 0
 				c = c + (PKG_MAX_LOCAL_TASKS - (manycore[x][y] + pending[x][y]))*4 # Terceiro critério: número de páginas ocupadas no PE
 				c = c + pending[x][y]*2 # Manter tarefas do mesmo app espalhadas pelo many-core: segundo critério
 				# print("Custo {}x{} pré = {}".format(x,y,c))
@@ -172,17 +169,15 @@ def map(manycore, selected_window, selected_w, sucessors, t, pending, mapped):
 					if mapped[aux] != (-1, -1): #task sucessora ou antecessora mapeada
 						#print(mapped[aux])
 						dist_calc = (abs(mapped[aux][0] - x) + abs(mapped[aux][1] - y))
-						m_dist += dist_calc
 						c = c + dist_calc*1 # Distância Manhattan: critério de maior importância
 						# print("C  ",c)
 
 				# print("Custo {}x{} pós = {}".format(x,y,c))
 				if (c < cost):
 					cost = c
-					manhattan = m_dist
 					selected_PE = (x, y)
 
-	return selected_PE, manhattan
+	return selected_PE
 
 def edge_number(sucessors):
 	edges = 0
@@ -348,8 +343,7 @@ while opt == -1:
 
 					manhattan_sum = 0
 					for task in mapping_order:
-						selected_PE, manhattan = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped)
-						manhattan_sum += manhattan
+						selected_PE = map(manycore, selected_window, selected_w, sucessors, task, pending, mapped)
 						# print("Task "+str(t), selected_PE)
 						mapped[task] = selected_PE
 						manycore[selected_PE[0]][selected_PE[1]] = manycore[selected_PE[0]][selected_PE[1]] - 1 #decrementar pagina livre
@@ -357,6 +351,15 @@ while opt == -1:
 						# print(pending)
 						tick = tick + 1
 						traffic.write(str(tick)+"\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t40\t0\t0\t0\t"+str((mapped[task][0] << 8) + mapped[task][1])+"\t"+str((appid << 8) + task)+"\n")
+
+					manhattan_sum = 0
+					for task in mapping_order:
+						pe = mapped[task]
+						for successor in sucessors[task]:
+							if successor != -1:
+								pe_s = mapped[successor]
+								dist = (abs(pe[0] - pe_s[0]) + abs(pe[1] - pe_s[1]))
+								manhattan_sum += dist
 
 					print("Distância Manhattan média = {}".format(manhattan_sum / edge_number(sucessors)))
 
