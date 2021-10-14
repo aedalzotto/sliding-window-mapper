@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import numpy as np
 
 from processor import Processor
 from task import Task
@@ -89,4 +90,36 @@ class Application:
 		else:
 			self.score = 0
 
-		print("Application {} score = {}".format(self.id, self.score))			
+		print("Application {} score = {}".format(self.id, self.score))
+
+	def bounding_box(self): #Dúvida: como usa uma variavel = None, para que serve?
+		xmin = np.inf
+		xmax = 0
+		ymin = np.inf
+		ymax = 0
+
+		for task in self.get_tasks(): # varredura das coordenadas
+			#começar xaux em infinito np.inf (numpy)
+			if task.get_mapped()[0] < xmin: #o valor q ele ta lendo tem q ser menor q o valor atual
+				xmin = task.get_mapped()[0] #se for o menor valor possível ele troca o valor.
+			
+			if task.get_mapped()[0] > xmax: #comparando o valor atual do xaux
+				xmax = task.get_mapped()[0] #armazenando
+
+			if task.get_mapped()[1] < ymin:
+				ymin = task.get_mapped()[1]
+			
+			if task.get_mapped()[1] > ymax:
+				ymax = task.get_mapped()[1] #maior valor, aquele primeiro la
+
+			#print("Application {} coordinates = ({}, {})".format(self.id, task.get_mapped()[0], task.get_mapped()[1]))
+		#print("Application {} xaux= {}, xaux2= {}, resulte x= {}.".format(self.id, xaux, xaux2, resulte_x))
+		#print("Application {} yaux= {}, yaux2= {}, resulte y= {}.".format(self.id, yaux, yaux2, resulte_y))
+
+		wx = xmax - xmin + 1
+		wy = ymax - ymin + 1
+		self.w = (wx, wy) #w
+		self.bb = (xmin, ymin)
+
+		print("Aplication {} bb: {}".format(self.id, self.bb)) #tamanho, bounding box
+		print("Aplication {} w: {}".format(self.id, self.w)) #tamanho, bounding box		
