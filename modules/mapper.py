@@ -108,16 +108,13 @@ class Mapper:
 			opt = input("Type your option: ")
 			if opt == 'B':
 				return
-			elif 0 < int(opt) <= len(Mapper.__APPLICATIONS.keys()):  # verifica se 0 > opcao <= 13
+			else:
 				try:
 					descriptor = list(Mapper.__APPLICATIONS.values())[int(opt) - 1]
 					break
-				except Exception:
-					traceback.print_exc()
+				except:
+					print("Invalid option, try again!")
 					continue
-			else:
-				print("Invalid option, try again!")
-				continue
 
 		# Check for space before building the application object
 		task_cnt = descriptor[0]
