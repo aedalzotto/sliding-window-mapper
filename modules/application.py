@@ -110,11 +110,7 @@ class Application:
 				ymin = task.get_mapped()[1]
 			
 			if task.get_mapped()[1] > ymax:
-				ymax = task.get_mapped()[1] #maior valor, aquele primeiro la
-
-			#print("Application {} coordinates = ({}, {})".format(self.id, task.get_mapped()[0], task.get_mapped()[1]))
-		#print("Application {} xaux= {}, xaux2= {}, resulte x= {}.".format(self.id, xaux, xaux2, resulte_x))
-		#print("Application {} yaux= {}, yaux2= {}, resulte y= {}.".format(self.id, yaux, yaux2, resulte_y))
+				ymax = task.get_mapped()[1] #maior valor, aquele primeiro
 
 		wx = xmax - xmin + 1
 		wy = ymax - ymin + 1
@@ -123,3 +119,9 @@ class Application:
 
 		print("Aplication {} bb: {}".format(self.id, self.bb)) #tamanho, bounding box
 		print("Aplication {} w: {}".format(self.id, self.w)) #tamanho, bounding box		
+
+	def get_bb(self):
+		return self.bb, self.w
+
+	def get_score(self):
+		return self.score
