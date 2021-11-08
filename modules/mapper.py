@@ -317,7 +317,7 @@ class Mapper:
 			print("Tarefa removida de id: {} estava no bb_f".format(id)) #posso migrar uma tarefa
 			tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True) #ordenar tarefass da frag[0]
 			print("Tarefa mais fragmentada é {}".format(tasks[0].get_id()))
-		#self.novo_calculo(pe, application, task_id, w)
+		self.new_calculation(pe, application, task_id)
 
 	def is_in_bb(self, bb, w, pe):
 		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]: #abrir espaço na bb, posso comparar o grao com o que abriu
@@ -325,16 +325,15 @@ class Mapper:
 		else:
 			return False
 
-	'''def novo_calculo(self, pe, w, application, task_id): #substituir o pending ////////simular um novo custo
-
-		for x in range(pe[0], pe[0] + w[0]): #x = pe[0]
-			for y in range(pe[1], pe[1] + w[1]):
-				c = 0
-				c += self.processors[x][y].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
-				c += self.processors[x][y].get_tasks_same_app() * 2 # Cost of 2 for each task of the same app in the PE
-				for comm in communicating:
-					mapped = application.get_tasks()[comm].get_mapped()
-					if mapped != (-1, -1):
-						# If communicating task is mapped, calculate the distance
-						dist = abs(mapped[0] - x) + abs(mapped[1] - y)
-						c += dist  # Cost of 1 for each hop to each comm task'''
+	def new_calculation(self, pe, application, task_id, tasks):
+		communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
+		communicating = list(set(communicating))
+		c = 0
+		c += pe[0][1].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
+		c += pe[0][1].get_tasks_same_app() * 2 # Cost of 2 for each task of the same app in the PE
+		for comm in communicating: # tenho q mudar o comunicating... e nome da variável comm
+			mapped = application.get_tasks()[comm].get_mapped()
+			if mapped != (-1, -1):
+				dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
+				c += dist  # Cost of 1 for each hop to each comm task
+		print("O custo atual é:{}".format(tasks[0].get_id()))
