@@ -312,12 +312,12 @@ class Mapper:
 		frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True) #devolve a lista numa variavel, reverse ordem inversa, x.get score valor a ser ordenado
 		print("Aplicação mais fragmentada é {}.".format(frag[0].get_id()))
 		bb_f, w_f = frag[0].get_bb()
-		print("bb fragmentada:{},  w fragmentada:{}.".format(bb_f, w_f))
+		print("bb fragmentada: {},  w fragmentada: {}.".format(bb_f, w_f))
 		if self.is_in_bb(bb_f, w_f, pe): #está verdadeiro
+			tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True)  #ordenar tarefass da frag[0]
 			print("Tarefa removida de id: {} estava no bb_f".format(id)) #posso migrar uma tarefa
-			tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True) #ordenar tarefass da frag[0]
-			print("Tarefa mais fragmentada é {}".format(tasks[0].get_id()))
-		self.new_calculation(pe)
+			print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
+		self.new_calculation(pe, application, task_id)
 
 	def is_in_bb(self, bb, w, pe):
 		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]: #abrir espaço na bb, posso comparar o grao com o que abriu
@@ -325,7 +325,7 @@ class Mapper:
 		else:
 			return False
 
-	def new_calculation(self, pe, application, task_id, tasks):
+	def new_calculation(self, pe, application, task_id):
 		communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
 		communicating = list(set(communicating))
 		c = 0
@@ -335,5 +335,6 @@ class Mapper:
 			mapped = application.get_tasks()[comm].get_mapped()
 			if mapped != (-1, -1):
 				dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
-				c += dist  # Cost of 1 for each hop to each comm task
-		print("O custo atual é:{}".format(tasks[0].get_id()))
+				c += dist  # Cost of 1 for each hop to each comm tas
+
+		application.get_tasks()[task_id].set_mapping(pe)
