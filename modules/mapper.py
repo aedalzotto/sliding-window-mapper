@@ -317,7 +317,7 @@ class Mapper:
 			tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True)  #ordenar tarefass da frag[0]
 			print("Tarefa removida de id: {} estava no bb_f".format(id)) #posso migrar uma tarefa
 			print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
-		self.new_calculation(pe, application, task_id)
+		self.new_calculation(pe)
 
 	def is_in_bb(self, bb, w, pe):
 		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]: #abrir espaço na bb, posso comparar o grao com o que abriu
