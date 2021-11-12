@@ -304,11 +304,12 @@ class Mapper:
 			self.free_pages += 1 #é um contador global do manycore somatorio
 			self.tick += 1
 			self.debug.remove_task(app, task.get_id(), self.tick)
-			self.defrag(pe, task.get_id())  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
+			if self.running: # ver se é verdadeira
+				self.defrag(pe, task.get_id(), app)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
 
 		self.debug.update_traffic()
 
-	def defrag(self, pe, id):
+	def defrag(self, pe, id, application):
 		frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True) #devolve a lista numa variavel, reverse ordem inversa, x.get score valor a ser ordenado
 		print("Aplicação mais fragmentada é {}.".format(frag[0].get_id()))
 		bb_f, w_f = frag[0].get_bb()
@@ -317,7 +318,8 @@ class Mapper:
 			tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True)  #ordenar tarefass da frag[0]
 			print("Tarefa removida de id: {} estava no bb_f".format(id)) #posso migrar uma tarefa
 			print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
-		self.new_calculation(pe)
+			custo = self.new_calculation(pe, application, tasks[0].get_id())
+			print("o novo custo é {}".format(custo))
 
 	def is_in_bb(self, bb, w, pe):
 		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]: #abrir espaço na bb, posso comparar o grao com o que abriu
@@ -329,12 +331,12 @@ class Mapper:
 		communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
 		communicating = list(set(communicating))
 		c = 0
-		c += pe[0][1].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
-		c += pe[0][1].get_tasks_same_app() * 2 # Cost of 2 for each task of the same app in the PE
+		c += self.processors[pe[0]][pe[1]].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
+		c += self.processors[pe[0]][pe[1]].get_tasks_same_app() * 2 # Cost of 2 for each task of the same app in the PE
 		for comm in communicating: # tenho q mudar o comunicating... e nome da variável comm
 			mapped = application.get_tasks()[comm].get_mapped()
 			if mapped != (-1, -1):
 				dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
 				c += dist  # Cost of 1 for each hop to each comm tas
 
-		application.get_tasks()[task_id].set_mapping(pe)
+		return c
