@@ -260,8 +260,7 @@ class Mapper:
 				if self.processors[x][y].get_free_pages() > 0:  # PE able to receive task
 					c = 0
 					c += self.processors[x][y].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
-					c += self.processors[x][
-							 y].get_tasks_same_app() * 2  # Cost of 2 for each task of the same app in the PE
+					c += self.processors[x][y].get_tasks_same_app() * 2  # Cost of 2 for each task of the same app in the PE
 					for comm in communicating:
 						mapped = application.get_tasks()[comm].get_mapped()
 						if mapped != (-1, -1):
@@ -274,7 +273,7 @@ class Mapper:
 						pe = (x, y)
 
 		self.processors[pe[0]][pe[1]].add_task()
-		application.get_tasks()[task_id].set_mapping(pe)
+		application.get_tasks()[task_id].set_mapping(pe, cost)
 
 	def remove_application(self):
 		print("Removing application")
@@ -332,9 +331,20 @@ class Mapper:
 		communicating = list(set(communicating))
 		c = 0
 		c += self.processors[pe[0]][pe[1]].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
-		c += self.processors[pe[0]][pe[1]].get_tasks_same_app() * 2 # Cost of 2 for each task of the same app in the PE
+		c += self.processors[pe[0]][pe[1]].get_tasks_same_app() * 2 # isso ta retornando zero, o processor n salva o endereço dele
 		for comm in communicating: # tenho q mudar o comunicating... e nome da variável comm
 			mapped = application.get_tasks()[comm].get_mapped()
+
+
+
+
+
+
+
+
+
+
+
 			if mapped != (-1, -1):
 				dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
 				c += dist  # Cost of 1 for each hop to each comm tas

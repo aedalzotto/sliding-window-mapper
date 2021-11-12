@@ -125,3 +125,8 @@ class Application:
 
 	def get_score(self):
 		return self.score
+
+	def mapeamento_tasks(self):
+		self.get_taks()
+		#for para todas as tasks verificando se elas estão mapeadas no pe passado como argumento.
+		#Somar 1 para cada tarefa no PE e retornar esse valor, fazer um contador
