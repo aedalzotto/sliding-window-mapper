@@ -18,7 +18,7 @@ class Task:
 	def get_mapped(self):
 		return self.mapped
 
-	def set_mapping(self, pe, cost): #alterar essa função
+	def set_mapping(self, pe, cost):
 		self.mapped = pe
 		self.cost = cost
 

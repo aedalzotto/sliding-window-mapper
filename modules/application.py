@@ -92,7 +92,7 @@ class Application:
 
 		print("Application {} score = {}".format(self.id, self.score))
 
-	def bounding_box(self): #Dúvida: como usa uma variavel = None, para que serve?
+	def bounding_box(self):
 		xmin = np.inf
 		xmax = 0
 		ymin = np.inf
@@ -114,11 +114,11 @@ class Application:
 
 		wx = xmax - xmin + 1
 		wy = ymax - ymin + 1
-		self.w = (wx, wy) #w
+		self.w = (wx, wy)
 		self.bb = (xmin, ymin)
 
-		print("Aplication {} bb: {}".format(self.id, self.bb)) #tamanho, bounding box
-		print("Aplication {} w: {}".format(self.id, self.w)) #tamanho, bounding box		
+		print("Aplication {} bb: {}".format(self.id, self.bb)) #coordenada inicial do bb
+		print("Aplication {} w: {}".format(self.id, self.w)) #tamanho do bb
 
 	def get_bb(self):
 		return self.bb, self.w
@@ -127,6 +127,11 @@ class Application:
 		return self.score
 
 	def mapeamento_tasks(self):
-		self.get_taks()
+		#self.get_tasks()
+		a = 0
+		for task in self.tasks():
+			pe = task.get_mapped()
+			a += pe[0]
+			print("a = {}".format(a))
 		#for para todas as tasks verificando se elas estão mapeadas no pe passado como argumento.
 		#Somar 1 para cada tarefa no PE e retornar esse valor, fazer um contador
