@@ -126,12 +126,12 @@ class Application:
 	def get_score(self):
 		return self.score
 
-	def mapeamento_tasks(self):
-		#self.get_tasks()
-		a = 0
-		for task in self.tasks():
-			pe = task.get_mapped()
-			a += pe[0]
-			print("a = {}".format(a))
+	def get_tasks_same_app(self, pe):
+		count = 0
+		for task in self.get_tasks():
+			mapped = task.get_mapped() #comparacao de pe c mapped
+			if mapped == pe:
+				count += 1 #conto todos q sao iguais
+		return count
 		#for para todas as tasks verificando se elas estão mapeadas no pe passado como argumento.
 		#Somar 1 para cada tarefa no PE e retornar esse valor, fazer um contador

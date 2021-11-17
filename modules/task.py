@@ -27,3 +27,6 @@ class Task:
 
 	def get_score(self):
 		return self.score
+
+	def get_cost(self):
+		return self.cost

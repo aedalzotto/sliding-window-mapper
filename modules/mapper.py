@@ -100,7 +100,7 @@ class Mapper:
 		for name in application_names:
 			print("\t{} - {} ({})".format(count, name, str(len(Mapper.__TASKS.get(name)))))
 			#print("\t{} - {}".format(int(get_id()), name))
-			count = count + 1
+			count += 1
 		print("\tB - Back to main menu")
 
 		descriptor = {}
@@ -318,7 +318,8 @@ class Mapper:
 			print("Tarefa removida de id: {} estava no bb_f".format(id)) #posso migrar uma tarefa
 			print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
 			custo = self.new_calculation(pe, application, tasks[0].get_id())
-			print("o novo custo é {}".format(custo))
+			print("o custo antigo é: {}".format(tasks[0].get_cost()))
+			print("o novo custo é: {}".format(custo))
 
 	def is_in_bb(self, bb, w, pe):
 		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]: #abrir espaço na bb, posso comparar o grao com o que abriu
@@ -330,21 +331,11 @@ class Mapper:
 		communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
 		communicating = list(set(communicating))
 		c = 0
-		c += self.processors[pe[0]][pe[1]].get_tasks_diff_app() * 4  # Cost of 4 for each task of a different app
-		c += self.processors[pe[0]][pe[1]].get_tasks_same_app() * 2 # isso ta retornando zero, o processor n salva o endereço dele
-		for comm in communicating: # tenho q mudar o comunicating... e nome da variável comm
+		same_app = application.get_tasks_same_app(pe)
+		c += (self.processors[pe[0]][pe[1]].get_tasks_diff_app() - same_app) * 4  # Cost of 4 for each task of a different app
+		c += same_app * 2
+		for comm in communicating:
 			mapped = application.get_tasks()[comm].get_mapped()
-
-
-
-
-
-
-
-
-
-
-
 			if mapped != (-1, -1):
 				dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
 				c += dist  # Cost of 1 for each hop to each comm tas
