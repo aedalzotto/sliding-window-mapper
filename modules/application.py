@@ -83,7 +83,7 @@ class Application:
 
 			print("Task {} internal score = {}".format(task.get_id(), task.get_score()))
 
-			processors[pe[0]][pe[1]].clear_pending()
+			processors[pe[0]][pe[1]] # tirei o .clear_pending()
 		
 		if edges > 0:
 			self.score = manhattan_sum / edges
@@ -126,10 +126,10 @@ class Application:
 	def get_score(self):
 		return self.score
 
-	def get_tasks_same_app(self, pe):
+	def get_tasks_same_app(self, pe, old_pe):
 		count = 0
 		for task in self.get_tasks():
-			mapped = task.get_mapped() #comparacao de pe c mapped
+			mapped = task.get_mapped(old_pe) #comparacao de pe c mapped
 			if mapped == pe:
 				count += 1 #conto todos q sao iguais
 		return count

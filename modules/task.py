@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from modules import processor, application
+
 class Task:
 	def __init__(self, name, task_id, successors):
 		self.name = name

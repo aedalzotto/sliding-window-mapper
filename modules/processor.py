@@ -12,7 +12,7 @@ class Processor:
 	def get_tasks_diff_app(self):
 		return self.max_local_tasks - self.free_pages
 
-	#def get_tasks_same_app(self): #nao uso mais essa não quero fazer uso de pending), estou usando a do application.py
+	#def get_tasks_same_app(self): #nao uso mais essa, não quero fazer uso de pending, estou usando a do application.py
 	#	return self.pending
 
 	def add_task(self):
