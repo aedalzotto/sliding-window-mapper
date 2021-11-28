@@ -320,6 +320,7 @@ class Mapper:
             return False
 
     def new_calculation(self, pe, application, task_id):
+        c = np.inf
         communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
         communicating = list(set(communicating))
         old_pe = application.tasks[task_id].get_mapped()
