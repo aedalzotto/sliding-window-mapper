@@ -258,7 +258,7 @@ class Mapper:
         for x in range(window[0], window[0] + w[0]):  # x = pe[0]
             for y in range(window[1], window[1] + w[1]):
                 if self.processors[x][y].get_free_pages() > 0:  # PE able to receive task
-                    self.modularizacao_calculo(pe, application, communicating)#colocar de volta o if
+                    c = self.modularizacao_calculo(pe, application, communicating) #colocar de volta o if
 
                     if c < cost:
                         cost = c
@@ -296,22 +296,21 @@ class Mapper:
             self.tick += 1
             self.debug.remove_task(app, task.get_id(), self.tick)
             if self.running:  # ver se é verdadeira
-                self.defrag(pe, task.get_id(), app)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
+                self.defrag(pe)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
 
         self.debug.update_traffic()
 
-    def defrag(self, pe, id, application):
+    def defrag(self, pe):
         frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True)  # devolve a lista numa variavel, reverse ordem inversa, x.get score valor a ser ordenado
         print("Aplicação mais fragmentada é {}.".format(frag[0].get_id()))
         bb_f, w_f = frag[0].get_bb()
         print("bb fragmentada: {},  w fragmentada: {}.".format(bb_f, w_f))
         if self.is_in_bb(bb_f, w_f, pe):  # está verdadeiro
             tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True)  # ordenar tarefass da frag[0]
-            print("Tarefa removida de id: {} estava no bb_f".format(id))  # posso migrar uma tarefa
+            print("Tarefa removida estava no bb_f")  # posso migrar uma tarefa
             print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
-            custo = self.new_calculation(pe, application, tasks[0].get_id())
-            print("o custo antigo é: {}".format(tasks[0].get_cost()))
-            print("o novo custo é: {}".format(custo))
+            if self.new_calculation(pe, frag[0], tasks[0].get_id()):
+                frag[0].set_score(self.processors)
 
     def is_in_bb(self, bb, w, pe):
         if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]:  #abrir espaço na bb, posso comparar o grao com o que abriu
@@ -320,16 +319,13 @@ class Mapper:
             return False
 
     def new_calculation(self, pe, application, task_id):
-        c = np.inf
         communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
         communicating = list(set(communicating))
         old_pe = application.tasks[task_id].get_mapped()
         application.get_tasks()[task_id].set_mapping((-1, -1), 0)
         self.processors[old_pe[0]][old_pe[1]].remove_task()
         custo_a = self.modularizacao_calculo(pe, application, communicating)
-        return c
         custo_b = self.modularizacao_calculo(old_pe, application, communicating)
-        return c
         application.get_tasks()[task_id].set_mapping(old_pe, 0)
         if custo_a < custo_b:
             print("O pe novo de custo {} é menor que o pe antigo de valor {}.".format(custo_a, custo_b))
@@ -339,9 +335,11 @@ class Mapper:
             self.processors[pe[0]][pe[1]].add_task()
             self.tick += 1
             self.debug.add_task(application, task_id, self.tick)
+            return True
         else:
             print("O pe novo de custo {} é maior que o pe antigo de valor {}.".format(custo_a, custo_b))
             self.processors[old_pe[0]][old_pe[1]].add_task()
+            return False
 
     def modularizacao_calculo(self, pe, application, communicating):
         c = 0
@@ -353,3 +351,4 @@ class Mapper:
             if mapped != (-1, -1):
                 dist = abs(mapped[0] - pe[0]) + abs(mapped[1] - pe[1])
                 c += dist  # Cost of 1 for each hop to each comm tas
+        return c

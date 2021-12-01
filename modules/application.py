@@ -126,10 +126,10 @@ class Application:
 	def get_score(self):
 		return self.score
 
-	def get_tasks_same_app(self, pe, old_pe):
+	def get_tasks_same_app(self, pe):
 		count = 0
 		for task in self.get_tasks():
-			mapped = task.get_mapped(old_pe) #comparacao de pe c mapped
+			mapped = task.get_mapped() #comparacao de pe c mapped
 			if mapped == pe:
 				count += 1 #conto todos q sao iguais
 		return count
