@@ -99,7 +99,6 @@ class Mapper:
         application_names = list(Mapper.__APPLICATIONS.keys())
         for name in application_names:
             print("\t{} - {} ({})".format(count, name, str(len(Mapper.__TASKS.get(name)))))
-            #print("\t{} - {} ({})".format(count, name, len(application_names.get_name())))
             count += 1
         print("\tB - Back to main menu")
 
@@ -258,7 +257,7 @@ class Mapper:
         for x in range(window[0], window[0] + w[0]):  # x = pe[0]
             for y in range(window[1], window[1] + w[1]):
                 if self.processors[x][y].get_free_pages() > 0:  # PE able to receive task
-                    c = self.modularizacao_calculo(pe, application, communicating) #colocar de volta o if
+                    c = self.modularizacao_calculo(pe, application, communicating)
 
                     if c < cost:
                         cost = c
@@ -272,6 +271,8 @@ class Mapper:
 
         for app in self.running:
             print("\t{} - {}".format(app.get_id(), app.get_name()))
+
+       # x = app.get_id()
 
         print("\tB - Back to main menu")
 
@@ -296,21 +297,27 @@ class Mapper:
             self.tick += 1
             self.debug.remove_task(app, task.get_id(), self.tick)
             if self.running:  # ver se é verdadeira
-                self.defrag(pe)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
+                self.defrag(pe, app)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
 
         self.debug.update_traffic()
 
-    def defrag(self, pe):
+    def defrag(self, pe, app):
+        count = 1
         frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True)  # devolve a lista numa variavel, reverse ordem inversa, x.get score valor a ser ordenado
-        print("Aplicação mais fragmentada é {}.".format(frag[0].get_id()))
-        bb_f, w_f = frag[0].get_bb()
-        print("bb fragmentada: {},  w fragmentada: {}.".format(bb_f, w_f))
-        if self.is_in_bb(bb_f, w_f, pe):  # está verdadeiro
-            tasks = sorted(frag[0].get_tasks(), key=lambda x: x.get_score(), reverse=True)  # ordenar tarefass da frag[0]
-            print("Tarefa removida estava no bb_f")  # posso migrar uma tarefa
-            print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
-            if self.new_calculation(pe, frag[0], tasks[0].get_id()):
-                frag[0].set_score(self.processors)
+        #print("Aplicação mais fragmentada é {}.".format(frag[0].get_id()))
+        x = app.get_id()-1
+        while count < x:
+            print("{} aplicação mais fragmentada é {}.".format(count, frag[count-1].get_id()))
+            bb_f, w_f = frag[count-1].get_bb()
+            print("bb fragmentada: {},  w fragmentada: {}.".format(bb_f, w_f))
+            if self.is_in_bb(bb_f, w_f, pe):  # está verdadeiro
+                tasks = sorted(frag[count-1].get_tasks(), key=lambda x: x.get_score(), reverse=True)  # ordenar tarefass da frag[0]
+                print("Tarefa removida estava no bb_f")  # posso migrar uma tarefa
+                print("Tarefa mais fragmentada é {} ".format(tasks[0].get_id()))
+                if self.new_calculation(pe, frag[count-1], tasks[0].get_id()):
+                    frag[count-1].set_score(self.processors)
+                    return                                                                 # o return é só p executar o laço
+            count += 1
 
     def is_in_bb(self, bb, w, pe):
         if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]:  #abrir espaço na bb, posso comparar o grao com o que abriu
