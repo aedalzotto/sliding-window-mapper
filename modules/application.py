@@ -133,5 +133,3 @@ class Application:
 			if mapped == pe:
 				count += 1 #conto todos q sao iguais
 		return count
-		#for para todas as tasks verificando se elas estão mapeadas no pe passado como argumento.
-		#Somar 1 para cada tarefa no PE e retornar esse valor, fazer um contador
