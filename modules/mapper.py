@@ -145,7 +145,7 @@ class Mapper:
 
 		### Tasks are mapped. Compute a score for the application, for each task, and clear pending mapping
 		application.set_score(self.processors)
-		application.bounding_box()
+		application.compute_bounding_box()
 		self.running.append(application)
 		self.history.append(application)
 
@@ -257,7 +257,7 @@ class Mapper:
 		for x in range(window[0], window[0] + w[0]):  # x = pe[0]
 			for y in range(window[1], window[1] + w[1]):
 				if self.processors[x][y].get_free_pages() > 0:  # PE able to receive task
-					c = self.modularizacao_calculo(pe, application, communicating)
+					c = self.compute_cost(pe, application, communicating)
 
 					if c < cost:
 						cost = c
@@ -288,64 +288,65 @@ class Mapper:
 				print("Invalid option, try again!")
 				continue
 
-		self.running.remove(app)  # tem uma lista de aplicações
+		self.running.remove(app)		# Remove application from running list
 
 		for task in app.get_tasks():
 			pe = task.get_mapped()
-			self.processors[pe[0]][pe[1]].remove_task()  # libero espaço do pe
-			self.free_pages += 1  # é um contador global do manycore somatorio
+			self.processors[pe[0]][pe[1]].remove_task()	# Remove task from processor
+			self.free_pages += 1  						# Release free page in many-core
 			self.tick += 1
 			self.debug.remove_task(app, task.get_id(), self.tick)
-			if self.running:  # ver se é verdadeira
-				self.defrag(pe)  # o pe é onde ta mapeada a tarefa q saiu, verifico todas tarefas
+			if self.running:  							# If there is any other running application, try to defrag
+				self.defrag(pe)
 
 		self.debug.update_traffic()
 
 	def defrag(self, pe):
-		frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True)  # devolve a lista numa variavel, reverse ordem inversa, x.get score valor a ser ordenado
-		for app in frag: #lista de aplicacaoes
-			print("aplicação avaliada: {}.".format(app.get_id()))
-			bb_f, w_f = app.get_bb()
-			print("bb fragmentada: {},  w fragmentada: {}.".format(bb_f, w_f))
-			if self.is_in_bb(bb_f, w_f, pe):  # está verdadeiro
-				tasks = sorted(app.get_tasks(), key=lambda x: x.get_score(), reverse=True)  # ordenar tarefass da frag[0]
-				print("Tarefa removida estava no bb_f")  # posso migrar uma tarefa
+		frag = sorted(self.running, key=lambda x: x.get_score(), reverse=True)	# Order running applications by the most fragmented (worst score)
+		for app in frag:
+			bb_f, w_f = app.get_bb()			# Gets the bounding box of the running app
+			if self.is_in_bb(bb_f, w_f, pe):	# If the removed task was in the application bounding box, try to defrag
+				tasks = sorted(app.get_tasks(), key=lambda x: x.get_score(), reverse=True)  # Order the tasks from the worst to best (by score)
 				for task in tasks:
-					print("Tarefa avaliada: {} ".format(task.get_id()))
-					if self.new_calculation(pe, app, task.get_id()):
-						app.set_score(self.processors)
-						return                                                                 # o return é só p executar o laço
+					if self.try_migration(pe, app, task.get_id()):
+						app.set_score(self.processors)				# If migrated, compute new score and return
+						return
 
 	def is_in_bb(self, bb, w, pe):
-		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]:  #abrir espaço na bb, posso comparar o grao com o que abriu
+		if pe[0] >= bb[0] and pe[0] < bb[0] + w[0] and pe[1] >= bb[1] and pe[1] < bb[1] + w[1]:
 			return True
 		else:
 			return False
 
-	def new_calculation(self, pe, application, task_id):
+	def try_migration(self, pe, application, task_id):
 		communicating = application.get_predecessors(task_id) + application.get_tasks()[task_id].get_successors()
-		communicating = list(set(communicating))
-		old_pe = application.tasks[task_id].get_mapped()
-		application.get_tasks()[task_id].set_mapping((-1, -1), 0)
+		communicating = list(set(communicating))			# Get the set of communicating tasks
+		old_pe = application.tasks[task_id].get_mapped()	# Gets the PE where the task is actually mapped
+
+		application.get_tasks()[task_id].set_mapping((-1, -1), 0)	# Fake removal of the task to compute
 		self.processors[old_pe[0]][old_pe[1]].remove_task()
-		custo_a = self.modularizacao_calculo(pe, application, communicating)
-		custo_b = self.modularizacao_calculo(old_pe, application, communicating)
-		application.get_tasks()[task_id].set_mapping(old_pe, 0)
-		if custo_a < custo_b:
-			print("O pe novo de custo {} é menor que o pe antigo de valor {}.".format(custo_a, custo_b))
-			self.tick += 1
+
+		new_cost = self.compute_cost(pe, application, communicating)
+		old_cost = self.compute_cost(old_pe, application, communicating)	# The old cost should be updated
+
+		application.get_tasks()[task_id].set_mapping(old_pe, 0)		# Re-map the task -- unfake the removal
+
+		if new_cost < old_cost:		# Should migrate
+			print("Migrating task {} from PE {}x{} to PE {}x{}.".format(task_id, old_pe[0], old_pe[1], pe[0], pe[1]))
+			
+			self.tick += 1												# Remove task from old PE
 			self.debug.remove_task(application, task_id, self.tick)
 			application.get_tasks()[task_id].set_mapping(pe, 0)
-			self.processors[pe[0]][pe[1]].add_task()
+
+			self.processors[pe[0]][pe[1]].add_task()					# Add task to new PE
 			self.tick += 1
 			self.debug.add_task(application, task_id, self.tick)
 			return True
 		else:
-			print("O pe novo de custo {} é maior que o pe antigo de valor {}.".format(custo_a, custo_b))
-			self.processors[old_pe[0]][old_pe[1]].add_task()
+			self.processors[old_pe[0]][old_pe[1]].add_task()		# Re-map the task to processor
 			return False
 
-	def modularizacao_calculo(self, pe, application, communicating):
+	def compute_cost(self, pe, application, communicating):
 		c = 0
 		same_app = application.get_tasks_same_app(pe)
 		c += (self.processors[pe[0]][pe[1]].get_tasks_diff_app() - same_app) * 4  # Cost of 4 for each task of a different app
