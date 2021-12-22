@@ -64,6 +64,8 @@ class Mapper:
 				line.append(Processor(self.max_local_tasks))
 			self.processors.append(line)
 
+		# self.processors[0][0].add_task() # Mapping Task
+
 		print("Sliding window mapper for many-cores")
 		print("Scenario name: {}".format(self.testcase))
 		print("\tMany-core size: {}x{}".format(self.size, self.size))
@@ -129,10 +131,12 @@ class Mapper:
 
 		## First mapping step: get the mapping window
 		window, w = self.window_search(task_cnt)
+		print("Window {}x{} with size {}x{}".format(window[0], window[1], w[0], w[1]))
 		self.last_window = window
 
 		## Second step: find the correct task mapping order
 		order = self.mapping_order(application)
+		print("Order = {}".format(order))
 
 		## Final step: map each task
 		for task_id in order:
@@ -254,17 +258,20 @@ class Mapper:
 
 		pe = (0, 0)
 
-		for x in range(window[0], window[0] + w[0]):  # x = pe[0]
+		for x in range(window[0], window[0] + w[0]):
 			for y in range(window[1], window[1] + w[1]):
 				if self.processors[x][y].get_free_pages() > 0:  # PE able to receive task
-					c = self.compute_cost(pe, application, communicating)
-
+					c = self.compute_cost((x, y), application, communicating)
 					if c < cost:
 						cost = c
 						pe = (x, y)
+						if cost == 0:
+							self.processors[pe[0]][pe[1]].add_task()
+							application.get_tasks()[task_id].set_mapping(pe)
+							return
 
 		self.processors[pe[0]][pe[1]].add_task()
-		application.get_tasks()[task_id].set_mapping(pe, cost)
+		application.get_tasks()[task_id].set_mapping(pe)
 
 	def remove_application(self):
 		print("Removing application")
@@ -349,7 +356,7 @@ class Mapper:
 	def compute_cost(self, pe, application, communicating):
 		c = 0
 		same_app = application.get_tasks_same_app(pe)
-		c += (self.processors[pe[0]][pe[1]].get_tasks_diff_app() - same_app) * 4  # Cost of 4 for each task of a different app
+		c += (self.processors[pe[0]][pe[1]].get_mapped_task_cnt() - same_app) * 4  # Cost of 4 for each task of a different app
 		c += same_app * 2
 		for comm in communicating:
 			mapped = application.get_tasks()[comm].get_mapped()

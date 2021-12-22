@@ -8,7 +8,7 @@ class Processor:
 	def get_free_pages(self):
 		return self.free_pages
 
-	def get_tasks_diff_app(self):
+	def get_mapped_task_cnt(self):
 		return self.max_local_tasks - self.free_pages
 
 	def add_task(self):

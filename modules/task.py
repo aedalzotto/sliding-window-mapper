@@ -19,9 +19,8 @@ class Task:
 	def get_mapped(self):
 		return self.mapped
 
-	def set_mapping(self, pe, cost):
+	def set_mapping(self, pe):
 		self.mapped = pe
-		self.cost = cost
 
 	def set_score(self, score):
 		self.score = score
