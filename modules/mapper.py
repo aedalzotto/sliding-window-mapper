@@ -330,7 +330,7 @@ class Mapper:
 		communicating = list(set(communicating))			# Get the set of communicating tasks
 		old_pe = application.tasks[task_id].get_mapped()	# Gets the PE where the task is actually mapped
 
-		application.get_tasks()[task_id].set_mapping((-1, -1), 0)	# Fake removal of the task to compute
+		application.get_tasks()[task_id].set_mapping(-1, -1)	# Fake removal of the task to compute
 		self.processors[old_pe[0]][old_pe[1]].remove_task()
 
 		new_cost = self.compute_cost(pe, application, communicating)
