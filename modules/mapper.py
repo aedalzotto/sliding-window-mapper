@@ -330,20 +330,20 @@ class Mapper:
 		communicating = list(set(communicating))			# Get the set of communicating tasks
 		old_pe = application.tasks[task_id].get_mapped()	# Gets the PE where the task is actually mapped
 
-		application.get_tasks()[task_id].set_mapping(-1, -1)	# Fake removal of the task to compute
+		application.get_tasks()[task_id].set_mapping((-1, -1))	# Fake removal of the task to compute
 		self.processors[old_pe[0]][old_pe[1]].remove_task()
 
 		new_cost = self.compute_cost(pe, application, communicating)
 		old_cost = self.compute_cost(old_pe, application, communicating)	# The old cost should be updated
 
-		application.get_tasks()[task_id].set_mapping(old_pe, 0)		# Re-map the task -- unfake the removal
+		application.get_tasks()[task_id].set_mapping(old_pe)		# Re-map the task -- unfake the removal
 
 		if new_cost < old_cost:		# Should migrate
 			print("Migrating task {} from PE {}x{} to PE {}x{}.".format(task_id, old_pe[0], old_pe[1], pe[0], pe[1]))
 			
 			self.tick += 1												# Remove task from old PE
 			self.debug.remove_task(application, task_id, self.tick)
-			application.get_tasks()[task_id].set_mapping(pe, 0)
+			application.get_tasks()[task_id].set_mapping(pe)
 
 			self.processors[pe[0]][pe[1]].add_task()					# Add task to new PE
 			self.tick += 1
